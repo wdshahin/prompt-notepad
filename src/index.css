@@ -1,1 +1,51 @@
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; } body { background: #0f0f0f; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0f0f0f; transition: background 0.25s; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scaleIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+
+/* Light mode scrollbar */
+.light-scroll::-webkit-scrollbar-thumb { background: #ccc; }
+
+/* Lightbox */
+.lightbox-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.93);
+  z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.18s ease;
+}
+.lightbox-img {
+  max-width: 90vw; max-height: 85vh;
+  object-fit: contain; border-radius: 6px; display: block;
+  animation: scaleIn 0.2s ease;
+}
+
+/* Note row hover reveal */
+.note-row .tag-bar { opacity: 0; transition: opacity 0.15s; pointer-events: none; }
+.note-row:hover .tag-bar { opacity: 1; pointer-events: auto; }
+
+/* Icon rail tooltip */
+.rail-btn { position: relative; }
+.rail-btn .rail-tip {
+  position: absolute; left: 52px; top: 50%; transform: translateY(-50%);
+  background: #1a1a1a; color: #ccc; font-size: 11px; padding: 4px 9px;
+  border-radius: 4px; white-space: nowrap; pointer-events: none;
+  opacity: 0; transition: opacity 0.15s; z-index: 100;
+  border: 1px solid #2a2a2a;
+}
+.rail-btn:hover .rail-tip { opacity: 1; }
+
+/* Tool button hover */
+.tool-btn:hover { border-color: #c8ff57 !important; color: #c8ff57 !important; }
+.light .tool-btn:hover { border-color: #5a9e1e !important; color: #5a9e1e !important; }
+
+/* Theme transition */
+* { transition: background-color 0.2s, border-color 0.2s, color 0.15s; }
+textarea, input { transition: none !important; }

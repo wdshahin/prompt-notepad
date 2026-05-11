@@ -6,6 +6,23 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
+const mono = "'JetBrains Mono','Fira Code','Cascadia Code',monospace";
+
+function getC(theme) {
+  if (theme === "light") return {
+    bg: "#f7f7f3", surface: "#eeeee9", surface2: "#e5e5e0",
+    border: "#d4d4cc", accent: "#5a9e1e", accentFg: "#fff",
+    text: "#1c1c1c", muted: "#aaa", dim: "#777", bright: "#444",
+    danger: "#d94040",
+  };
+  return {
+    bg: "#0f0f0f", surface: "#141414", surface2: "#1a1a1a",
+    border: "#242424", accent: "#c8ff57", accentFg: "#000",
+    text: "#e0e0e0", muted: "#484848", dim: "#777", bright: "#bbb",
+    danger: "#ff5555",
+  };
+}
+
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
@@ -31,14 +48,7 @@ function formatDateTime(ts) {
   return `${day} ${month}, ${hh}:${mm}`;
 }
 
-const C = {
-  bg: "#0f0f0f", surface: "#141414", surface2: "#1a1a1a",
-  border: "#242424", accent: "#c8ff57", text: "#e0e0e0",
-  muted: "#484848", dim: "#777", bright: "#bbb", danger: "#ff5555",
-};
-const mono = "'JetBrains Mono','Fira Code','Cascadia Code',monospace";
-
-function AuthScreen() {
+function AuthScreen({ C, theme, toggleTheme }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -62,7 +72,7 @@ function AuthScreen() {
     } finally { setLoading(false); }
   };
 
-  const inp = { width:"100%", background:C.surface2, border:`1px solid ${C.border}`, borderRadius:5, padding:"10px 13px", color:C.text, fontFamily:mono, fontSize:13, outline:"none", boxSizing:"border-box" };
+  const inp = { width:"100%", background:C.surface2, border:`1px solid ${C.border}`, borderRadius:5, padding:"10px 13px", color:C.text, fontFamily:mono, fontSize:13, outline:"none", boxSizing:"border-box", transition:"none" };
 
   if (done) return (
     <div style={{background:C.bg,height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:mono}}>
@@ -85,7 +95,13 @@ function AuthScreen() {
   return (
     <div style={{background:C.bg,height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:mono}}>
       <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"40px 36px",width:340}}>
-        <div style={{color:C.accent,fontSize:18,fontWeight:700,letterSpacing:"0.07em",marginBottom:6}}>⌘ PROMPTS</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+          <div style={{color:C.accent,fontSize:18,fontWeight:700,letterSpacing:"0.07em"}}>⌘ PROMPTS</div>
+          <button onClick={toggleTheme} title={theme==="dark"?"Switch to light":"Switch to dark"}
+            style={{background:"transparent",border:`1px solid ${C.border}`,color:C.dim,borderRadius:4,width:28,height:28,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            {theme==="dark"?"☀":"☾"}
+          </button>
+        </div>
         <div style={{color:C.dim,fontSize:12,marginBottom:28}}>{mode==="login"?"Sign in to your notepad":"Create a free account"}</div>
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
           <input type="email" placeholder="your@email.com" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} style={inp}/>
@@ -109,6 +125,10 @@ function AuthScreen() {
 }
 
 export default function PromptNotepad() {
+  const [theme, setTheme] = useState(() => localStorage.getItem("pn-theme") || "dark");
+  const C = getC(theme);
+  const toggleTheme = () => setTheme(t => { const n = t==="dark"?"light":"dark"; localStorage.setItem("pn-theme",n); return n; });
+
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [notes, setNotes] = useState([]);
@@ -116,10 +136,16 @@ export default function PromptNotepad() {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
+  const [filterTag, setFilterTag] = useState(null);
+  const [fetchError, setFetchError] = useState(null);
+  const [lightboxImg, setLightboxImg] = useState(null);
+  const [hoveredId, setHoveredId] = useState(null);
   const saveTimer = useRef(null);
   const editorRef = useRef(null);
   const fileInputRef = useRef(null);
   const activeNote = notes.find(n => n.id === activeId) || null;
+
+  useEffect(() => { document.body.style.background = C.bg; }, [theme]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -138,16 +164,24 @@ export default function PromptNotepad() {
   }, [user]);
 
   const fetchNotes = async () => {
-    const { data, error } = await supabase.from("notes").select("*").order("updated_at", { ascending: false });
-    if (error) { console.error(error); return; }
-    const mapped = (data||[]).map(row => ({
-      id: row.id, title: row.title, text: row.text, images: row.images||[],
-      createdAt: new Date(row.created_at).getTime(),
-      updatedAt: new Date(row.updated_at).getTime(),
-    }));
-    setNotes(mapped);
-    if (mapped.length > 0) setActiveId(mapped[0].id);
-    setLoaded(true);
+    try {
+      const { data, error } = await supabase.from("notes").select("*").order("updated_at", { ascending: false });
+      if (error) throw error;
+      const mapped = (data||[]).map(row => ({
+        id: row.id, title: row.title, text: row.text, images: row.images||[],
+        important: row.important||false, personal: row.personal||false, client: row.client||false,
+        createdAt: new Date(row.created_at).getTime(),
+        updatedAt: new Date(row.updated_at).getTime(),
+      }));
+      setNotes(mapped);
+      if (mapped.length > 0) setActiveId(mapped[0].id);
+      setFetchError(null);
+    } catch (e) {
+      console.error(e);
+      setFetchError(e.message || "Failed to fetch notes");
+    } finally {
+      setLoaded(true);
+    }
   };
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
@@ -158,7 +192,9 @@ export default function PromptNotepad() {
     saveTimer.current = setTimeout(async () => {
       const { error } = await supabase.from("notes").upsert({
         id: note.id, user_id: user.id, title: note.title, text: note.text,
-        images: note.images, updated_at: new Date().toISOString(),
+        images: note.images,
+        important: note.important||false, personal: note.personal||false, client: note.client||false,
+        updated_at: new Date().toISOString(),
       });
       if (error) console.error("Save error:", error);
       setSaving(false);
@@ -166,9 +202,10 @@ export default function PromptNotepad() {
   }, [user]);
 
   const createNote = async () => {
-    const note = { id:generateId(), title:"Untitled Prompt", text:"", images:[], createdAt:Date.now(), updatedAt:Date.now() };
+    const note = { id:generateId(), title:"Untitled Prompt", text:"", images:[], important:false, personal:false, client:false, createdAt:Date.now(), updatedAt:Date.now() };
     const { error } = await supabase.from("notes").insert({
       id:note.id, user_id:user.id, title:note.title, text:note.text, images:note.images,
+      important:false, personal:false, client:false,
       created_at:new Date().toISOString(), updated_at:new Date().toISOString(),
     });
     if (error) { console.error(error); return; }
@@ -258,13 +295,22 @@ export default function PromptNotepad() {
 
   const signOut = async () => { await supabase.auth.signOut(); setNotes([]); setActiveId(null); setLoaded(false); };
 
+  const filteredNotes = filterTag ? notes.filter(n => n[filterTag]) : notes;
+
+  const RAIL = [
+    { id: null,        icon: "📋", label: "All" },
+    { id: "important", icon: "⭐", label: "Important" },
+    { id: "personal",  icon: "👤", label: "Personal" },
+    { id: "client",    icon: "💼", label: "Client" },
+  ];
+
   if (!authChecked) return (
     <div style={{background:C.bg,height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:mono,color:C.muted,gap:10}}>
       <div style={{width:7,height:7,borderRadius:"50%",background:C.accent}}/>Connecting…
     </div>
   );
 
-  if (!user) return <AuthScreen />;
+  if (!user) return <AuthScreen C={C} theme={theme} toggleTheme={toggleTheme} />;
 
   if (!loaded) return (
     <div style={{background:C.bg,height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:mono,color:C.muted,gap:10}}>
@@ -272,14 +318,54 @@ export default function PromptNotepad() {
     </div>
   );
 
-  const toolBtnStyle = { background:"transparent", border:`1px solid ${C.border}`, color:C.dim, fontFamily:mono, fontSize:12, padding:"5px 11px", borderRadius:4, cursor:"pointer" };
+  if (fetchError) return (
+    <div style={{background:C.bg,height:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:mono,padding:20}}>
+      <div style={{color:C.danger,fontSize:18,fontWeight:700,marginBottom:12}}>⚠️ Connection Error</div>
+      <div style={{color:C.text,fontSize:13,textAlign:"center",maxWidth:400,lineHeight:1.6,marginBottom:24}}>{fetchError}</div>
+      <div style={{background:C.surface,border:`1px solid ${C.border}`,padding:16,borderRadius:8,fontSize:11,color:C.dim}}>
+        <b>Pro tip:</b> If it says "column does not exist", make sure you ran the SQL migration to add the <code>important</code>, <code>personal</code>, and <code>client</code> columns in your Supabase dashboard.
+      </div>
+      <button onClick={() => window.location.reload()} style={{marginTop:24,background:C.accent,color:C.accentFg,border:"none",padding:"10px 20px",borderRadius:5,cursor:"pointer",fontWeight:700}}>Retry</button>
+    </div>
+  );
+
+  const toolBtnStyle = { background:"transparent", border:`1px solid ${C.border}`, color:C.dim, fontFamily:mono, fontSize:12, padding:"5px 11px", borderRadius:4, cursor:"pointer", transition:"border-color 0.15s, color 0.15s" };
 
   return (
     <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px 0",fontFamily:mono,boxSizing:"border-box"}} onPaste={handlePaste}>
 
-      {toast && <div style={{position:"fixed",bottom:22,right:22,background:C.accent,color:"#000",fontSize:13,fontWeight:700,padding:"8px 16px",borderRadius:5,zIndex:999}}>{toast}</div>}
+      {lightboxImg && (
+        <div className="lightbox-backdrop" onClick={() => setLightboxImg(null)}>
+          <img src={lightboxImg} className="lightbox-img" alt="Lightbox" onClick={e => e.stopPropagation()}/>
+          <button onClick={() => setLightboxImg(null)} style={{position:"absolute",top:20,right:20,background:"none",border:"none",color:"#fff",fontSize:40,cursor:"pointer"}}>&times;</button>
+        </div>
+      )}
+
+      {toast && <div style={{position:"fixed",bottom:22,right:22,background:C.accent,color:C.accentFg,fontSize:13,fontWeight:700,padding:"8px 16px",borderRadius:5,zIndex:999}}>{toast}</div>}
 
       <div style={{width:"85%",maxWidth:1300,minHeight:"calc(100vh - 40px)",display:"flex",border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:"0 0 80px rgba(0,0,0,0.55)"}}>
+
+        {/* Icon Rail */}
+        <nav style={{width:50,flexShrink:0,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",alignItems:"center",paddingTop:12,gap:4}}>
+          <div style={{color:C.accent,fontSize:16,fontWeight:900,marginBottom:8,letterSpacing:"-1px"}}>⌘</div>
+          {RAIL.map(r => (
+            <div key={String(r.id)} className="rail-btn"
+              onClick={() => setFilterTag(filterTag === r.id ? null : r.id)}
+              style={{
+                width:36, height:36, borderRadius:6, cursor:"pointer",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:16,
+                background: filterTag === r.id ? C.accent + "22" : "transparent",
+                border: `1px solid ${filterTag === r.id ? C.accent + "66" : "transparent"}`,
+                transition:"all 0.15s",
+              }}
+              title={r.label}
+            >
+              {r.icon}
+              <span className="rail-tip">{r.label}</span>
+            </div>
+          ))}
+        </nav>
 
         {/* Sidebar */}
         <aside style={{width:220,minWidth:180,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",flexShrink:0}}>
@@ -289,19 +375,50 @@ export default function PromptNotepad() {
           </div>
 
           <div style={{flex:1,overflowY:"auto",padding:"4px 0"}}>
-            {notes.length===0&&<div style={{color:C.muted,fontSize:13,textAlign:"center",padding:"32px 14px",lineHeight:1.8}}>No prompts yet.<br/>Hit + to start.</div>}
-            {notes.map(n=>(
-              <div key={n.id} onClick={()=>setActiveId(n.id)}
-                style={{padding:"11px 14px",cursor:"pointer",position:"relative",borderLeft:`2px solid ${n.id===activeId?C.accent:"transparent"}`,background:n.id===activeId?C.surface2:"transparent"}}>
-                <div style={{color:C.text,fontSize:13,fontWeight:600,marginBottom:5,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",paddingRight:18}}>{n.title}</div>
+            {filteredNotes.length===0&&<div style={{color:C.muted,fontSize:13,textAlign:"center",padding:"32px 14px",lineHeight:1.8}}>{filterTag ? `No ${filterTag} prompts.` : "No prompts yet."}<br/>{filterTag ? "" : "Hit + to start."}</div>}
+            {filteredNotes.map(n=>{
+              const isActive = n.id === activeId;
+              const isHovered = hoveredId === n.id;
+              return (
+              <div key={n.id}
+                className="note-row"
+                onClick={()=>setActiveId(n.id)}
+                onMouseEnter={()=>setHoveredId(n.id)}
+                onMouseLeave={()=>setHoveredId(null)}
+                style={{padding:"11px 14px 8px",cursor:"pointer",position:"relative",borderLeft:`2px solid ${isActive?C.accent:"transparent"}`,background:isActive?C.surface2:"transparent"}}>
+                {/* Title row */}
+                <div style={{color:C.text,fontSize:13,fontWeight:600,marginBottom:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",paddingRight:22}}>{n.title}</div>
+                {/* Tag badges */}
+                {(n.important||n.personal||n.client) && (
+                  <div style={{display:"flex",gap:4,marginBottom:4,flexWrap:"wrap"}}>
+                    {n.important && <span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#f5a62322",color:"#f5a623",border:"1px solid #f5a62344"}}>⭐ important</span>}
+                    {n.personal  && <span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#4a9eff22",color:"#4a9eff",border:"1px solid #4a9eff44"}}>👤 personal</span>}
+                    {n.client    && <span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#a855f722",color:"#a855f7",border:"1px solid #a855f744"}}>💼 client</span>}
+                  </div>
+                )}
                 <div style={{color:C.bright,fontSize:12,fontWeight:600,marginBottom:2}}>{timeAgo(n.updatedAt)}</div>
                 <div style={{color:C.dim,fontSize:11}}>
                   {formatDateTime(n.updatedAt)}
                   {n.images?.length>0&&<span style={{marginLeft:6}}>🖼 {n.images.length}</span>}
                 </div>
-                <button onClick={e=>{e.stopPropagation();deleteNote(n.id);}} style={{position:"absolute",top:9,right:8,background:"none",border:"none",color:C.muted,fontSize:16,cursor:"pointer",lineHeight:1,padding:2,opacity:0.6}}>×</button>
+                {/* Delete button */}
+                <button onClick={e=>{e.stopPropagation();deleteNote(n.id);}} style={{position:"absolute",top:9,right:6,background:"none",border:"none",color:C.muted,fontSize:16,cursor:"pointer",lineHeight:1,padding:2,opacity:0.6}}>×</button>
+                {/* Hover tag strip */}
+                <div className="tag-bar" style={{display:"flex",gap:4,marginTop:6,paddingTop:6,borderTop:`1px solid ${C.border}`}}>
+                  {[{tag:"important",icon:"⭐",col:"#f5a623"},{tag:"personal",icon:"👤",col:"#4a9eff"},{tag:"client",icon:"💼",col:"#a855f7"}].map(({tag,icon,col})=>(
+                    <button key={tag}
+                      onClick={e=>{e.stopPropagation();toggleTag(n.id,tag);}}
+                      title={`Mark as ${tag}`}
+                      style={{flex:1,fontSize:11,padding:"3px 0",borderRadius:4,cursor:"pointer",fontFamily:mono,
+                        background: n[tag] ? col+"33" : "transparent",
+                        border: `1px solid ${n[tag] ? col : C.border}`,
+                        color: n[tag] ? col : C.dim,
+                        transition:"all 0.15s",
+                      }}>{icon}</button>
+                  ))}
+                </div>
               </div>
-            ))}
+            );})}
           </div>
 
           <div style={{borderTop:`1px solid ${C.border}`,padding:"10px 14px"}}>
@@ -327,11 +444,15 @@ export default function PromptNotepad() {
               <div style={{display:"flex",alignItems:"center",gap:8,padding:"12px 18px",borderBottom:`1px solid ${C.border}`,background:C.surface}}>
                 <input value={activeNote.title} onChange={e=>updateNote(activeNote.id,{title:e.target.value})} placeholder="Prompt title…"
                   style={{flex:1,background:"transparent",border:"none",outline:"none",color:C.text,fontFamily:mono,fontSize:15,fontWeight:700}}/>
-                <div style={{display:"flex",gap:6,flexShrink:0}}>
-                  <button onClick={copyText} style={toolBtnStyle}>Copy</button>
-                  <button onClick={downloadTxt} style={toolBtnStyle}>↓ .txt</button>
-                  <button onClick={downloadDoc} style={toolBtnStyle}>↓ .doc</button>
-                  <button onClick={()=>fileInputRef.current?.click()} style={toolBtnStyle}>+ Image</button>
+                <div style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
+                  <button onClick={copyText} className="tool-btn" style={toolBtnStyle}>Copy</button>
+                  <button onClick={downloadTxt} className="tool-btn" style={toolBtnStyle}>↓ .txt</button>
+                  <button onClick={downloadDoc} className="tool-btn" style={toolBtnStyle}>↓ .doc</button>
+                  <button onClick={()=>fileInputRef.current?.click()} className="tool-btn" style={toolBtnStyle}>+ Image</button>
+                  <button onClick={toggleTheme} title={theme==="dark"?"Light mode":"Dark mode"}
+                    style={{...toolBtnStyle,fontSize:15,padding:"4px 9px"}}>
+                    {theme==="dark"?"☀":"☾"}
+                  </button>
                 </div>
               </div>
 
@@ -350,7 +471,8 @@ export default function PromptNotepad() {
                 <div style={{display:"flex",flexWrap:"wrap",gap:10,padding:"0 22px 14px"}}>
                   {activeNote.images.map(img=>(
                     <div key={img.id} style={{position:"relative",border:`1px solid ${C.border}`,borderRadius:6,overflow:"hidden",lineHeight:0}}>
-                      <img src={img.dataUrl} style={{maxWidth:320,maxHeight:240,display:"block",objectFit:"contain",background:"#111"}} alt=""/>
+                      <img src={img.dataUrl} onClick={() => setLightboxImg(img.dataUrl)}
+                        style={{maxWidth:320,maxHeight:240,display:"block",objectFit:"contain",background:"#111",cursor:"zoom-in"}} alt=""/>
                       <button onClick={()=>removeImage(activeNote.id,img.id)} style={{position:"absolute",top:5,right:5,background:"rgba(0,0,0,0.75)",border:"none",color:"#fff",width:22,height:22,borderRadius:"50%",fontSize:15,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
                     </div>
                   ))}
