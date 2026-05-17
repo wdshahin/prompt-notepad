@@ -385,23 +385,6 @@ export default function PromptNotepad() {
           <button onClick={toggleTheme} style={{background:"transparent",border:`1px solid ${C.border}`,color:C.dim,borderRadius:4,width:30,height:30,cursor:"pointer",fontSize:14}}>{theme==="dark"?"☀":"☾"}</button>
         </div>
 
-        {/* Icon Rail */}
-        <nav className="rail" style={{background:C.surface,borderRight:`1px solid ${C.border}`}}>
-          <div style={{color:C.accent,fontSize:16,fontWeight:900,marginBottom:8,letterSpacing:"-1px"}}>⌘</div>
-          {RAIL.map(r => (
-            <div key={String(r.id)} className="rail-btn"
-              onClick={() => setFilterTag(filterTag === r.id ? null : r.id)}
-              style={{
-                background: filterTag === r.id ? C.accent + "22" : "transparent",
-                border: `1px solid ${filterTag === r.id ? C.accent + "66" : "transparent"}`,
-              }}
-              title={r.label}
-            >
-              {r.icon}
-              <span className="rail-tip">{r.label}</span>
-            </div>
-          ))}
-        </nav>
 
         {/* Sidebar */}
         <aside className={`sidebar${mobOpen?' mob-open':''}`} style={{background:C.surface,borderRight:`1px solid ${C.border}`}}>
