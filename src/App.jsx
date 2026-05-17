@@ -138,12 +138,18 @@ export default function PromptNotepad() {
   const [toast, setToast] = useState(null);
   const [filterTag, setFilterTag] = useState(null);
   const [fetchError, setFetchError] = useState(null);
-  const [lightboxImg, setLightboxImg] = useState(null);
+  const [carousel, setCarousel] = useState(null); // {images:[], index:0}
   const [hoveredId, setHoveredId] = useState(null);
+  const [mobOpen, setMobOpen] = useState(false);
   const saveTimer = useRef(null);
   const editorRef = useRef(null);
   const fileInputRef = useRef(null);
   const activeNote = notes.find(n => n.id === activeId) || null;
+
+  const openCarousel = (images, index) => setCarousel({ images, index });
+  const closeCarousel = () => setCarousel(null);
+  const carouselPrev = () => setCarousel(c => ({ ...c, index: (c.index - 1 + c.images.length) % c.images.length }));
+  const carouselNext = () => setCarousel(c => ({ ...c, index: (c.index + 1) % c.images.length }));
 
   useEffect(() => { document.body.style.background = C.bg; }, [theme]);
 
@@ -184,7 +190,7 @@ export default function PromptNotepad() {
     }
   };
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
+  const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
   const debouncedSave = useCallback((note) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -196,7 +202,7 @@ export default function PromptNotepad() {
         important: note.important||false, personal: note.personal||false, client: note.client||false,
         updated_at: new Date().toISOString(),
       });
-      if (error) console.error("Save error:", error);
+      if (error) { console.error("Save error:", error); showToast("Sync failed — check connection", "error"); }
       setSaving(false);
     }, 800);
   }, [user]);
@@ -241,8 +247,19 @@ export default function PromptNotepad() {
       debouncedSave(merged);
       return merged;
     }));
-    showToast("Image pasted ✓");
+    showToast("Image attached ✓", "success");
   }, [debouncedSave]);
+
+  const handleFileInputWithToast = (e) => {
+    const file = e.target.files[0];
+    if (!file || !activeId) return;
+    if (!file.type.startsWith("image/")) { showToast("Only image files allowed", "error"); return; }
+    const reader = new FileReader();
+    reader.onload = ev => addImageToNote(activeId, ev.target.result);
+    reader.onerror = () => showToast("Failed to read image file", "error");
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
 
   const removeImage = (noteId, imgId) => {
     setNotes(prev => prev.map(n => {
@@ -266,22 +283,14 @@ export default function PromptNotepad() {
     }
   }, [activeId, addImageToNote]);
 
-  const handleFileInput = (e) => {
-    const file = e.target.files[0];
-    if (!file || !activeId) return;
-    const reader = new FileReader();
-    reader.onload = ev => addImageToNote(activeId, ev.target.result);
-    reader.readAsDataURL(file);
-    e.target.value = "";
-  };
 
-  const copyText = () => { if (!activeNote?.text) return; navigator.clipboard.writeText(activeNote.text); showToast("Copied ✓"); };
+  const copyText = () => { if (!activeNote?.text) return; navigator.clipboard.writeText(activeNote.text).then(() => showToast("Copied ✓", "success")).catch(() => showToast("Copy failed", "error")); };
 
   const downloadTxt = () => {
     if (!activeNote) return;
     const blob = new Blob([activeNote.text], { type:"text/plain;charset=utf-8" });
     const a = Object.assign(document.createElement("a"), { href:URL.createObjectURL(blob), download:`${activeNote.title.replace(/[^a-z0-9]/gi,"_")}.txt` });
-    a.click(); URL.revokeObjectURL(a.href); showToast("Downloaded .txt ✓");
+    a.click(); URL.revokeObjectURL(a.href); showToast("Downloaded .txt ✓", "success");
   };
 
   const downloadDoc = () => {
@@ -290,7 +299,7 @@ export default function PromptNotepad() {
     const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"/></head><body><h1 style="font-family:Calibri;font-size:16pt">${activeNote.title}</h1>${lines}</body></html>`;
     const blob = new Blob(["\ufeff",html], { type:"application/msword" });
     const a = Object.assign(document.createElement("a"), { href:URL.createObjectURL(blob), download:`${activeNote.title.replace(/[^a-z0-9]/gi,"_")}.doc` });
-    a.click(); URL.revokeObjectURL(a.href); showToast("Downloaded .doc ✓");
+    a.click(); URL.revokeObjectURL(a.href); showToast("Downloaded .doc ✓", "success");
   };
 
   const signOut = async () => { await supabase.auth.signOut(); setNotes([]); setActiveId(null); setLoaded(false); };
@@ -331,33 +340,60 @@ export default function PromptNotepad() {
 
   const toolBtnStyle = { background:"transparent", border:`1px solid ${C.border}`, color:C.dim, fontFamily:mono, fontSize:12, padding:"5px 11px", borderRadius:4, cursor:"pointer", transition:"border-color 0.15s, color 0.15s" };
 
-  return (
-    <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px 0",fontFamily:mono,boxSizing:"border-box"}} onPaste={handlePaste}>
+  const toastBg = toast?.type === 'error' ? '#c0392b' : toast?.type === 'warn' ? '#e67e22' : C.accent;
+  const toastFg = toast?.type === 'error' || toast?.type === 'warn' ? '#fff' : C.accentFg;
 
-      {lightboxImg && (
-        <div className="lightbox-backdrop" onClick={() => setLightboxImg(null)}>
-          <img src={lightboxImg} className="lightbox-img" alt="Lightbox" onClick={e => e.stopPropagation()}/>
-          <button onClick={() => setLightboxImg(null)} style={{position:"absolute",top:20,right:20,background:"none",border:"none",color:"#fff",fontSize:40,cursor:"pointer"}}>&times;</button>
+  return (
+    <div className="app-root" style={{background:C.bg,fontFamily:mono}} onPaste={handlePaste}>
+
+      {/* Carousel */}
+      {carousel && (
+        <div className="carousel-backdrop" onClick={closeCarousel}>
+          <img src={carousel.images[carousel.index].dataUrl} className="carousel-img" alt="" onClick={e=>e.stopPropagation()}/>
+          {carousel.images.length > 1 && (
+            <>
+              <button className="carousel-btn carousel-btn-prev" onClick={e=>{e.stopPropagation();carouselPrev();}} aria-label="Previous">‹</button>
+              <button className="carousel-btn carousel-btn-next" onClick={e=>{e.stopPropagation();carouselNext();}} aria-label="Next">›</button>
+              <div className="carousel-dots" onClick={e=>e.stopPropagation()}>
+                {carousel.images.map((_,i)=>(
+                  <button key={i} className={`carousel-dot${i===carousel.index?' active':''}`} onClick={()=>setCarousel(c=>({...c,index:i}))}/>
+                ))}
+              </div>
+              <div className="carousel-counter">{carousel.index+1} / {carousel.images.length}</div>
+            </>
+          )}
+          <button className="carousel-close" onClick={closeCarousel}>&times;</button>
         </div>
       )}
 
-      {toast && <div style={{position:"fixed",bottom:22,right:22,background:C.accent,color:C.accentFg,fontSize:13,fontWeight:700,padding:"8px 16px",borderRadius:5,zIndex:999}}>{toast}</div>}
+      {toast && (
+        <div className="toast" style={{background:toastBg,color:toastFg}}>
+          {toast.type==='error'?'⚠️':toast.type==='warn'?'⚡':'✓'} {toast.msg}
+        </div>
+      )}
 
-      <div style={{width:"85%",maxWidth:1300,minHeight:"calc(100vh - 40px)",display:"flex",border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:"0 0 80px rgba(0,0,0,0.55)"}}>
+      {mobOpen && <div className="mob-overlay" onClick={()=>setMobOpen(false)}/>}
+
+      <div className="app-frame" style={{border:`1px solid ${C.border}`,boxShadow:"0 0 80px rgba(0,0,0,0.55)"}}>
+
+        {/* Mobile header */}
+        <div className="mob-header" style={{background:C.surface,borderBottom:`1px solid ${C.border}`}}>
+          <button className="mob-hamburger" onClick={()=>setMobOpen(o=>!o)}>
+            <span style={{background:C.text}}/><span style={{background:C.text}}/><span style={{background:C.text}}/>
+          </button>
+          <span style={{color:C.accent,fontSize:15,fontWeight:700,letterSpacing:"0.07em"}}>⌘ PROMPTS</span>
+          <button onClick={toggleTheme} style={{background:"transparent",border:`1px solid ${C.border}`,color:C.dim,borderRadius:4,width:30,height:30,cursor:"pointer",fontSize:14}}>{theme==="dark"?"☀":"☾"}</button>
+        </div>
 
         {/* Icon Rail */}
-        <nav style={{width:50,flexShrink:0,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",alignItems:"center",paddingTop:12,gap:4}}>
+        <nav className="rail" style={{background:C.surface,borderRight:`1px solid ${C.border}`}}>
           <div style={{color:C.accent,fontSize:16,fontWeight:900,marginBottom:8,letterSpacing:"-1px"}}>⌘</div>
           {RAIL.map(r => (
             <div key={String(r.id)} className="rail-btn"
               onClick={() => setFilterTag(filterTag === r.id ? null : r.id)}
               style={{
-                width:36, height:36, borderRadius:6, cursor:"pointer",
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:16,
                 background: filterTag === r.id ? C.accent + "22" : "transparent",
                 border: `1px solid ${filterTag === r.id ? C.accent + "66" : "transparent"}`,
-                transition:"all 0.15s",
               }}
               title={r.label}
             >
@@ -368,13 +404,19 @@ export default function PromptNotepad() {
         </nav>
 
         {/* Sidebar */}
-        <aside style={{width:220,minWidth:180,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",flexShrink:0}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"15px 14px",borderBottom:`1px solid ${C.border}`}}>
+        <aside className={`sidebar${mobOpen?' mob-open':''}`} style={{background:C.surface,borderRight:`1px solid ${C.border}`}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"15px 14px",borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
             <span style={{color:C.accent,fontSize:15,fontWeight:700,letterSpacing:"0.07em"}}>⌘ PROMPTS</span>
-            <button onClick={createNote} style={{background:C.accent,color:"#000",border:"none",borderRadius:4,width:26,height:26,fontSize:20,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              {RAIL.map(r=>(
+                <button key={String(r.id)} onClick={()=>setFilterTag(filterTag===r.id?null:r.id)} title={r.label}
+                  style={{background:filterTag===r.id?C.accent+"22":"transparent",border:`1px solid ${filterTag===r.id?C.accent+"66":C.border}`,borderRadius:4,width:24,height:24,fontSize:12,cursor:"pointer"}}>{r.icon}</button>
+              ))}
+              <button onClick={createNote} style={{background:C.accent,color:"#000",border:"none",borderRadius:4,width:26,height:26,fontSize:20,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+            </div>
           </div>
 
-          <div style={{flex:1,overflowY:"auto",padding:"4px 0"}}>
+          <div className="sidebar-list">
             {filteredNotes.length===0&&<div style={{color:C.muted,fontSize:13,textAlign:"center",padding:"32px 14px",lineHeight:1.8}}>{filterTag ? `No ${filterTag} prompts.` : "No prompts yet."}<br/>{filterTag ? "" : "Hit + to start."}</div>}
             {filteredNotes.map(n=>{
               const isActive = n.id === activeId;
@@ -421,10 +463,10 @@ export default function PromptNotepad() {
             );})}
           </div>
 
-          <div style={{borderTop:`1px solid ${C.border}`,padding:"10px 14px"}}>
+          <div className="sidebar-footer" style={{borderTop:`1px solid ${C.border}`,padding:"10px 14px"}}>
             <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8}}>
               <div style={{width:6,height:6,borderRadius:"50%",background:saving?"#f5a623":C.accent,flexShrink:0}}/>
-              <span style={{color:C.muted,fontSize:11}}>{saving?"Saving…":"Saved"}</span>
+              <span style={{color:C.muted,fontSize:11}}>{saving?"Saving…":"Synced ✓"}</span>
             </div>
             <div style={{color:C.muted,fontSize:10,marginBottom:6,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{user.email}</div>
             <button onClick={signOut} style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,fontFamily:mono,fontSize:10,padding:"4px 10px",borderRadius:4,cursor:"pointer",width:"100%"}}>Sign out</button>
@@ -432,7 +474,7 @@ export default function PromptNotepad() {
         </aside>
 
         {/* Editor */}
-        <main style={{flex:1,display:"flex",flexDirection:"column",background:C.bg}}>
+        <main className="editor-main" style={{background:C.bg}}>
           {!activeNote?(
             <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
               <div style={{fontSize:52,opacity:0.1}}>✎</div>
@@ -441,10 +483,10 @@ export default function PromptNotepad() {
             </div>
           ):(
             <>
-              <div style={{display:"flex",alignItems:"center",gap:8,padding:"12px 18px",borderBottom:`1px solid ${C.border}`,background:C.surface}}>
+              <div className="editor-toolbar" style={{display:"flex",alignItems:"center",gap:8,padding:"12px 18px",borderBottom:`1px solid ${C.border}`,background:C.surface,flexShrink:0}}>
                 <input value={activeNote.title} onChange={e=>updateNote(activeNote.id,{title:e.target.value})} placeholder="Prompt title…"
-                  style={{flex:1,background:"transparent",border:"none",outline:"none",color:C.text,fontFamily:mono,fontSize:15,fontWeight:700}}/>
-                <div style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
+                  style={{flex:1,background:"transparent",border:"none",outline:"none",color:C.text,fontFamily:mono,fontSize:15,fontWeight:700,minWidth:0}}/>
+                <div className="editor-tools" style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
                   <button onClick={copyText} className="tool-btn" style={toolBtnStyle}>Copy</button>
                   <button onClick={downloadTxt} className="tool-btn" style={toolBtnStyle}>↓ .txt</button>
                   <button onClick={downloadDoc} className="tool-btn" style={toolBtnStyle}>↓ .doc</button>
@@ -455,6 +497,7 @@ export default function PromptNotepad() {
                   </button>
                 </div>
               </div>
+              <div className="editor-body">
 
               <textarea ref={editorRef} value={activeNote.text}
                 onChange={e=>{
@@ -464,31 +507,32 @@ export default function PromptNotepad() {
                 }}
                 placeholder={"Write your prompt here…\n\nPaste image: Ctrl+V / Cmd+V\nOr click '+ Image' to attach from file"}
                 spellCheck={false}
-                style={{flex:1,background:"transparent",border:"none",outline:"none",resize:"none",color:C.text,fontFamily:mono,fontSize:15,lineHeight:1.85,padding:"22px",minHeight:300}}
+                style={{flex:1,background:"transparent",border:"none",outline:"none",resize:"none",color:C.text,fontFamily:mono,fontSize:15,lineHeight:1.85,padding:"22px",minHeight:200}}
               />
 
               {activeNote.images?.length>0&&(
                 <div style={{display:"flex",flexWrap:"wrap",gap:10,padding:"0 22px 14px"}}>
-                  {activeNote.images.map(img=>(
+                  {activeNote.images.map((img,idx)=>(
                     <div key={img.id} style={{position:"relative",border:`1px solid ${C.border}`,borderRadius:6,overflow:"hidden",lineHeight:0}}>
-                      <img src={img.dataUrl} onClick={() => setLightboxImg(img.dataUrl)}
-                        style={{maxWidth:320,maxHeight:240,display:"block",objectFit:"contain",background:"#111",cursor:"zoom-in"}} alt=""/>
+                      <img src={img.dataUrl} onClick={()=>openCarousel(activeNote.images, idx)}
+                        className="img-thumb" style={{maxWidth:320,maxHeight:240,display:"block",objectFit:"contain",background:"#111",cursor:"zoom-in"}} alt=""/>
                       <button onClick={()=>removeImage(activeNote.id,img.id)} style={{position:"absolute",top:5,right:5,background:"rgba(0,0,0,0.75)",border:"none",color:"#fff",width:22,height:22,borderRadius:"50%",fontSize:15,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
                     </div>
                   ))}
                 </div>
               )}
 
-              <div style={{padding:"8px 22px",borderTop:`1px solid ${C.border}`,color:C.muted,fontSize:12,display:"flex",justifyContent:"space-between"}}>
+              <div style={{padding:"8px 22px",borderTop:`1px solid ${C.border}`,color:C.muted,fontSize:12,display:"flex",justifyContent:"space-between",flexShrink:0}}>
                 <span>⌘/Ctrl+V to paste image · or click + Image</span>
                 <span>{activeNote.text.length} chars</span>
               </div>
+              </div>{/* end editor-body */}
             </>
           )}
         </main>
       </div>
 
-      <input ref={fileInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleFileInput}/>
+      <input ref={fileInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleFileInputWithToast}/>
     </div>
   );
 }
