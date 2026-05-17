@@ -239,6 +239,15 @@ export default function PromptNotepad() {
     }));
   }, [debouncedSave]);
 
+  const toggleTag = useCallback((id, tag) => {
+    setNotes(prev => prev.map(n => {
+      if (n.id !== id) return n;
+      const merged = { ...n, [tag]: !n[tag], updatedAt: Date.now() };
+      debouncedSave(merged);
+      return merged;
+    }));
+  }, [debouncedSave]);
+
   const addImageToNote = useCallback((id, dataUrl) => {
     const img = { id: generateId(), dataUrl };
     setNotes(prev => prev.map(n => {
@@ -388,14 +397,18 @@ export default function PromptNotepad() {
 
         {/* Sidebar */}
         <aside className={`sidebar${mobOpen?' mob-open':''}`} style={{background:C.surface,borderRight:`1px solid ${C.border}`}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"15px 14px",borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
-            <span style={{color:C.accent,fontSize:15,fontWeight:700,letterSpacing:"0.07em"}}>⌘ PROMPTS</span>
-            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          <div style={{flexShrink:0,borderBottom:`1px solid ${C.border}`}}>
+            {/* Row 1: title + new button */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 14px 8px"}}>
+              <span style={{color:C.accent,fontSize:15,fontWeight:700,letterSpacing:"0.07em"}}>⌘ PROMPTS</span>
+              <button onClick={createNote} style={{background:C.accent,color:"#000",border:"none",borderRadius:4,width:26,height:26,fontSize:20,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+            </div>
+            {/* Row 2: tag filter icons */}
+            <div style={{display:"flex",gap:4,padding:"0 14px 10px"}}>
               {RAIL.map(r=>(
                 <button key={String(r.id)} onClick={()=>setFilterTag(filterTag===r.id?null:r.id)} title={r.label}
-                  style={{background:filterTag===r.id?C.accent+"22":"transparent",border:`1px solid ${filterTag===r.id?C.accent+"66":C.border}`,borderRadius:4,width:24,height:24,fontSize:12,cursor:"pointer"}}>{r.icon}</button>
+                  style={{flex:1,background:filterTag===r.id?C.accent+"22":"transparent",border:`1px solid ${filterTag===r.id?C.accent+"66":C.border}`,borderRadius:4,height:26,fontSize:13,cursor:"pointer"}}>{r.icon}</button>
               ))}
-              <button onClick={createNote} style={{background:C.accent,color:"#000",border:"none",borderRadius:4,width:26,height:26,fontSize:20,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
             </div>
           </div>
 
@@ -427,7 +440,12 @@ export default function PromptNotepad() {
                   {n.images?.length>0&&<span style={{marginLeft:6}}>🖼 {n.images.length}</span>}
                 </div>
                 {/* Delete button */}
-                <button onClick={e=>{e.stopPropagation();deleteNote(n.id);}} style={{position:"absolute",top:9,right:6,background:"none",border:"none",color:C.muted,fontSize:16,cursor:"pointer",lineHeight:1,padding:2,opacity:0.6}}>×</button>
+                <button
+                  onClick={e=>{e.stopPropagation();deleteNote(n.id);}}
+                  title="Delete prompt"
+                  className="note-delete-btn"
+                  style={{position:"absolute",top:8,right:7,background:"#ff444422",border:"1px solid #ff444455",color:"#ff6666",width:22,height:22,borderRadius:"50%",fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,fontWeight:700,transition:"background 0.15s, color 0.15s, border-color 0.15s"}}
+                >×</button>
                 {/* Hover tag strip */}
                 <div className="tag-bar" style={{display:"flex",gap:4,marginTop:6,paddingTop:6,borderTop:`1px solid ${C.border}`}}>
                   {[{tag:"important",icon:"⭐",col:"#f5a623"},{tag:"personal",icon:"👤",col:"#4a9eff"},{tag:"client",icon:"💼",col:"#a855f7"}].map(({tag,icon,col})=>(
