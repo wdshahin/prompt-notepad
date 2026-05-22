@@ -72,20 +72,20 @@ function AuthScreen({ C, theme, toggleTheme }) {
     } finally { setLoading(false); }
   };
 
-  const inp = { width:"100%", background:C.surface2, border:`1px solid ${C.border}`, borderRadius:5, padding:"10px 13px", color:C.text, fontFamily:mono, fontSize:13, outline:"none", boxSizing:"border-box", transition:"none" };
+  const inp = { width: "100%", background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 5, padding: "10px 13px", color: C.text, fontFamily: mono, fontSize: 13, outline: "none", boxSizing: "border-box", transition: "none" };
 
   if (done) return (
-    <div style={{background:C.bg,height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:mono}}>
-      <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"40px 36px",width:340,textAlign:"center"}}>
-        <div style={{fontSize:36,marginBottom:16}}>📬</div>
-        <div style={{color:C.text,fontSize:15,fontWeight:700,marginBottom:8}}>Check your email</div>
-        <div style={{color:C.dim,fontSize:12,lineHeight:1.7}}>
-          Confirmation link sent to<br/>
-          <span style={{color:C.accent}}>{email}</span><br/>
+    <div style={{ background: C.bg, height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: mono }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "40px 36px", width: 340, textAlign: "center" }}>
+        <div style={{ fontSize: 36, marginBottom: 16 }}>📬</div>
+        <div style={{ color: C.text, fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Check your email</div>
+        <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.7 }}>
+          Confirmation link sent to<br />
+          <span style={{ color: C.accent }}>{email}</span><br />
           Click it then come back to log in.
         </div>
-        <button onClick={()=>{setDone(false);setMode("login");}}
-          style={{marginTop:20,background:"transparent",border:`1px solid ${C.border}`,color:C.dim,fontFamily:mono,fontSize:12,padding:"7px 16px",borderRadius:4,cursor:"pointer"}}>
+        <button onClick={() => { setDone(false); setMode("login"); }}
+          style={{ marginTop: 20, background: "transparent", border: `1px solid ${C.border}`, color: C.dim, fontFamily: mono, fontSize: 12, padding: "7px 16px", borderRadius: 4, cursor: "pointer" }}>
           Back to login
         </button>
       </div>
@@ -93,30 +93,30 @@ function AuthScreen({ C, theme, toggleTheme }) {
   );
 
   return (
-    <div style={{background:C.bg,height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:mono}}>
-      <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"40px 36px",width:340}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-          <div style={{color:C.accent,fontSize:18,fontWeight:700,letterSpacing:"0.07em"}}>⌘ PROMPTS</div>
-          <button onClick={toggleTheme} title={theme==="dark"?"Switch to light":"Switch to dark"}
-            style={{background:"transparent",border:`1px solid ${C.border}`,color:C.dim,borderRadius:4,width:28,height:28,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>
-            {theme==="dark"?"☀":"☾"}
+    <div style={{ background: C.bg, height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: mono }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "40px 36px", width: 340 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+          <div style={{ color: C.accent, fontSize: 18, fontWeight: 700, letterSpacing: "0.07em" }}>⌘ PROMPTS</div>
+          <button onClick={toggleTheme} title={theme === "dark" ? "Switch to light" : "Switch to dark"}
+            style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.dim, borderRadius: 4, width: 28, height: 28, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {theme === "dark" ? "☀" : "☾"}
           </button>
         </div>
-        <div style={{color:C.dim,fontSize:12,marginBottom:28}}>{mode==="login"?"Sign in to your notepad":"Create a free account"}</div>
-        <div style={{display:"flex",flexDirection:"column",gap:12}}>
-          <input type="email" placeholder="your@email.com" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} style={inp}/>
-          <input type="password" placeholder="Password (min 6 chars)" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} style={inp}/>
-          {error&&<div style={{color:C.danger,fontSize:11,padding:"7px 10px",background:"#ff000015",borderRadius:4,border:"1px solid #ff000030"}}>{error}</div>}
-          <button onClick={submit} disabled={loading||!email||!password}
-            style={{background:C.accent,color:"#000",border:"none",borderRadius:5,padding:"10px",fontFamily:mono,fontSize:13,fontWeight:700,cursor:loading?"not-allowed":"pointer",opacity:loading?0.7:1,letterSpacing:"0.05em"}}>
-            {loading?"…":mode==="login"?"Sign In":"Create Account"}
+        <div style={{ color: C.dim, fontSize: 12, marginBottom: 28 }}>{mode === "login" ? "Sign in to your notepad" : "Create a free account"}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <input type="email" placeholder="your@email.com" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} style={inp} />
+          <input type="password" placeholder="Password (min 6 chars)" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} style={inp} />
+          {error && <div style={{ color: C.danger, fontSize: 11, padding: "7px 10px", background: "#ff000015", borderRadius: 4, border: "1px solid #ff000030" }}>{error}</div>}
+          <button onClick={submit} disabled={loading || !email || !password}
+            style={{ background: C.accent, color: "#000", border: "none", borderRadius: 5, padding: "10px", fontFamily: mono, fontSize: 13, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1, letterSpacing: "0.05em" }}>
+            {loading ? "…" : mode === "login" ? "Sign In" : "Create Account"}
           </button>
         </div>
-        <div style={{marginTop:20,textAlign:"center",color:C.muted,fontSize:11}}>
-          {mode==="login"?"No account? ":"Already have one? "}
-          <button onClick={()=>{setMode(mode==="login"?"signup":"login");setError("");}}
-            style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontFamily:mono,fontSize:11,textDecoration:"underline"}}>
-            {mode==="login"?"Sign up free":"Log in"}
+        <div style={{ marginTop: 20, textAlign: "center", color: C.muted, fontSize: 11 }}>
+          {mode === "login" ? "No account? " : "Already have one? "}
+          <button onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(""); }}
+            style={{ background: "none", border: "none", color: C.accent, cursor: "pointer", fontFamily: mono, fontSize: 11, textDecoration: "underline" }}>
+            {mode === "login" ? "Sign up free" : "Log in"}
           </button>
         </div>
       </div>
@@ -127,7 +127,7 @@ function AuthScreen({ C, theme, toggleTheme }) {
 export default function PromptNotepad() {
   const [theme, setTheme] = useState(() => localStorage.getItem("pn-theme") || "dark");
   const C = getC(theme);
-  const toggleTheme = () => setTheme(t => { const n = t==="dark"?"light":"dark"; localStorage.setItem("pn-theme",n); return n; });
+  const toggleTheme = () => setTheme(t => { const n = t === "dark" ? "light" : "dark"; localStorage.setItem("pn-theme", n); return n; });
 
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -139,7 +139,6 @@ export default function PromptNotepad() {
   const [filterTag, setFilterTag] = useState(null);
   const [fetchError, setFetchError] = useState(null);
   const [carousel, setCarousel] = useState(null); // {images:[], index:0}
-  const [hoveredId, setHoveredId] = useState(null);
   const [mobOpen, setMobOpen] = useState(false);
   const saveTimer = useRef(null);
   const editorRef = useRef(null);
@@ -151,7 +150,7 @@ export default function PromptNotepad() {
   const carouselPrev = () => setCarousel(c => ({ ...c, index: (c.index - 1 + c.images.length) % c.images.length }));
   const carouselNext = () => setCarousel(c => ({ ...c, index: (c.index + 1) % c.images.length }));
 
-  useEffect(() => { document.body.style.background = C.bg; }, [theme]);
+  useEffect(() => { document.body.style.background = C.bg; }, [C.bg]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -164,18 +163,13 @@ export default function PromptNotepad() {
     return () => subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (!user) { setNotes([]); setLoaded(false); return; }
-    fetchNotes();
-  }, [user]);
-
   const fetchNotes = async () => {
     try {
       const { data, error } = await supabase.from("notes").select("*").order("updated_at", { ascending: false });
       if (error) throw error;
-      const mapped = (data||[]).map(row => ({
-        id: row.id, title: row.title, text: row.text, images: row.images||[],
-        important: row.important||false, personal: row.personal||false, client: row.client||false,
+      const mapped = (data || []).map(row => ({
+        id: row.id, title: row.title, text: row.text, images: row.images || [],
+        important: row.important || false, personal: row.personal || false, client: row.client || false,
         createdAt: new Date(row.created_at).getTime(),
         updatedAt: new Date(row.updated_at).getTime(),
       }));
@@ -190,6 +184,19 @@ export default function PromptNotepad() {
     }
   };
 
+  useEffect(() => {
+    if (!user) {
+      setTimeout(() => {
+        setNotes([]);
+        setLoaded(false);
+      }, 0);
+      return;
+    }
+    setTimeout(() => {
+      fetchNotes();
+    }, 0);
+  }, [user]);
+
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
   const debouncedSave = useCallback((note) => {
@@ -199,7 +206,7 @@ export default function PromptNotepad() {
       const { error } = await supabase.from("notes").upsert({
         id: note.id, user_id: user.id, title: note.title, text: note.text,
         images: note.images,
-        important: note.important||false, personal: note.personal||false, client: note.client||false,
+        important: note.important || false, personal: note.personal || false, client: note.client || false,
         updated_at: new Date().toISOString(),
       });
       if (error) { console.error("Save error:", error); showToast("Sync failed — check connection", "error"); }
@@ -208,15 +215,16 @@ export default function PromptNotepad() {
   }, [user]);
 
   const createNote = async () => {
-    const note = { id:generateId(), title:"Untitled Prompt", text:"", images:[], important:false, personal:false, client:false, createdAt:Date.now(), updatedAt:Date.now() };
+    const note = { id: generateId(), title: "Untitled Prompt", text: "", images: [], important: false, personal: false, client: false, createdAt: Date.now(), updatedAt: Date.now() };
     const { error } = await supabase.from("notes").insert({
-      id:note.id, user_id:user.id, title:note.title, text:note.text, images:note.images,
-      important:false, personal:false, client:false,
-      created_at:new Date().toISOString(), updated_at:new Date().toISOString(),
+      id: note.id, user_id: user.id, title: note.title, text: note.text, images: note.images,
+      important: false, personal: false, client: false,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     });
     if (error) { console.error(error); return; }
     setNotes(prev => [note, ...prev]);
     setActiveId(note.id);
+    setMobOpen(false);
     setTimeout(() => editorRef.current?.focus(), 50);
   };
 
@@ -252,7 +260,7 @@ export default function PromptNotepad() {
     const img = { id: generateId(), dataUrl };
     setNotes(prev => prev.map(n => {
       if (n.id !== id) return n;
-      const merged = { ...n, images:[...(n.images||[]),img], updatedAt:Date.now() };
+      const merged = { ...n, images: [...(n.images || []), img], updatedAt: Date.now() };
       debouncedSave(merged);
       return merged;
     }));
@@ -273,7 +281,7 @@ export default function PromptNotepad() {
   const removeImage = (noteId, imgId) => {
     setNotes(prev => prev.map(n => {
       if (n.id !== noteId) return n;
-      const merged = { ...n, images:n.images.filter(i=>i.id!==imgId), updatedAt:Date.now() };
+      const merged = { ...n, images: n.images.filter(i => i.id !== imgId), updatedAt: Date.now() };
       debouncedSave(merged);
       return merged;
     }));
@@ -297,17 +305,47 @@ export default function PromptNotepad() {
 
   const downloadTxt = () => {
     if (!activeNote) return;
-    const blob = new Blob([activeNote.text], { type:"text/plain;charset=utf-8" });
-    const a = Object.assign(document.createElement("a"), { href:URL.createObjectURL(blob), download:`${activeNote.title.replace(/[^a-z0-9]/gi,"_")}.txt` });
+    const blob = new Blob([activeNote.text], { type: "text/plain;charset=utf-8" });
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `${activeNote.title.replace(/[^a-z0-9]/gi, "_")}.txt` });
     a.click(); URL.revokeObjectURL(a.href); showToast("Downloaded .txt ✓", "success");
   };
 
   const downloadDoc = () => {
     if (!activeNote) return;
-    const lines = activeNote.text.split("\n").map(l=>`<p style="font-family:Calibri,sans-serif;font-size:12pt;margin:0 0 6pt">${l.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")||"&nbsp;"}</p>`).join("");
-    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"/></head><body><h1 style="font-family:Calibri;font-size:16pt">${activeNote.title}</h1>${lines}</body></html>`;
-    const blob = new Blob(["\ufeff",html], { type:"application/msword" });
-    const a = Object.assign(document.createElement("a"), { href:URL.createObjectURL(blob), download:`${activeNote.title.replace(/[^a-z0-9]/gi,"_")}.doc` });
+    const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const lines = activeNote.text.split("\n")
+      .map(l => `<p style="font-family:Calibri,sans-serif;font-size:12pt;margin:0 0 6pt">${esc(l) || "&nbsp;"}</p>`)
+      .join("");
+    const imgs = (activeNote.images || []).map((img, i) =>
+      `<p style="margin:12pt 0 4pt;font-family:Calibri;font-size:9pt;color:#888">Image ${i + 1}</p>` +
+      `<p><img src="${img.dataUrl}" style="max-width:6.5in;width:100%;border:1pt solid #ddd"/></p>`
+    ).join("");
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
+<head><meta charset="utf-8"/>
+<style>
+  @page {
+    size: 8.5in 11in;
+    margin: 1in;
+    mso-header-margin: .5in;
+    mso-footer-margin: .5in;
+    mso-paper-source: 0;
+  }
+  body {
+    font-family: Calibri, sans-serif;
+    font-size: 12pt;
+    margin: 1in;
+  }
+  p { margin: 0 0 6pt; }
+  img { max-width: 100%; height: auto; }
+</style>
+</head>
+<body>
+<h1 style="font-family:Calibri;font-size:16pt;margin:0 0 14pt;color:#111">${esc(activeNote.title)}</h1>
+${lines}
+${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-weight:bold;color:#444;border-top:1pt solid #ddd;padding-top:10pt">Attached Images</p>${imgs}` : ""}
+</body></html>`;
+    const blob = new Blob(["\ufeff", html], { type: "application/msword" });
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `${activeNote.title.replace(/[^a-z0-9]/gi, "_")}.doc` });
     a.click(); URL.revokeObjectURL(a.href); showToast("Downloaded .doc ✓", "success");
   };
 
@@ -316,59 +354,59 @@ export default function PromptNotepad() {
   const filteredNotes = filterTag ? notes.filter(n => n[filterTag]) : notes;
 
   const RAIL = [
-    { id: null,        icon: "📋", label: "All" },
+    { id: null, icon: "📋", label: "All" },
     { id: "important", icon: "⭐", label: "Important" },
-    { id: "personal",  icon: "👤", label: "Personal" },
-    { id: "client",    icon: "💼", label: "Client" },
+    { id: "personal", icon: "👤", label: "Personal" },
+    { id: "client", icon: "💼", label: "Client" },
   ];
 
   if (!authChecked) return (
-    <div style={{background:C.bg,height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:mono,color:C.muted,gap:10}}>
-      <div style={{width:7,height:7,borderRadius:"50%",background:C.accent}}/>Connecting…
+    <div style={{ background: C.bg, height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: mono, color: C.muted, gap: 10 }}>
+      <div style={{ width: 7, height: 7, borderRadius: "50%", background: C.accent }} />Connecting…
     </div>
   );
 
   if (!user) return <AuthScreen C={C} theme={theme} toggleTheme={toggleTheme} />;
 
   if (!loaded) return (
-    <div style={{background:C.bg,height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:mono,color:C.muted,gap:10}}>
-      <div style={{width:7,height:7,borderRadius:"50%",background:C.accent}}/>Loading notes…
+    <div style={{ background: C.bg, height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: mono, color: C.muted, gap: 10 }}>
+      <div style={{ width: 7, height: 7, borderRadius: "50%", background: C.accent }} />Loading notes…
     </div>
   );
 
   if (fetchError) return (
-    <div style={{background:C.bg,height:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:mono,padding:20}}>
-      <div style={{color:C.danger,fontSize:18,fontWeight:700,marginBottom:12}}>⚠️ Connection Error</div>
-      <div style={{color:C.text,fontSize:13,textAlign:"center",maxWidth:400,lineHeight:1.6,marginBottom:24}}>{fetchError}</div>
-      <div style={{background:C.surface,border:`1px solid ${C.border}`,padding:16,borderRadius:8,fontSize:11,color:C.dim}}>
+    <div style={{ background: C.bg, height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: mono, padding: 20 }}>
+      <div style={{ color: C.danger, fontSize: 18, fontWeight: 700, marginBottom: 12 }}>⚠️ Connection Error</div>
+      <div style={{ color: C.text, fontSize: 13, textAlign: "center", maxWidth: 400, lineHeight: 1.6, marginBottom: 24 }}>{fetchError}</div>
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 16, borderRadius: 8, fontSize: 11, color: C.dim }}>
         <b>Pro tip:</b> If it says "column does not exist", make sure you ran the SQL migration to add the <code>important</code>, <code>personal</code>, and <code>client</code> columns in your Supabase dashboard.
       </div>
-      <button onClick={() => window.location.reload()} style={{marginTop:24,background:C.accent,color:C.accentFg,border:"none",padding:"10px 20px",borderRadius:5,cursor:"pointer",fontWeight:700}}>Retry</button>
+      <button onClick={() => window.location.reload()} style={{ marginTop: 24, background: C.accent, color: C.accentFg, border: "none", padding: "10px 20px", borderRadius: 5, cursor: "pointer", fontWeight: 700 }}>Retry</button>
     </div>
   );
 
-  const toolBtnStyle = { background:"transparent", border:`1px solid ${C.border}`, color:C.dim, fontFamily:mono, fontSize:12, padding:"5px 11px", borderRadius:4, cursor:"pointer", transition:"border-color 0.15s, color 0.15s" };
+  const toolBtnStyle = { background: "transparent", border: `1px solid ${C.border}`, color: C.dim, fontFamily: mono, fontSize: 12, padding: "5px 11px", borderRadius: 4, cursor: "pointer", transition: "border-color 0.15s, color 0.15s" };
 
   const toastBg = toast?.type === 'error' ? '#c0392b' : toast?.type === 'warn' ? '#e67e22' : C.accent;
   const toastFg = toast?.type === 'error' || toast?.type === 'warn' ? '#fff' : C.accentFg;
 
   return (
-    <div className="app-root" style={{background:C.bg,fontFamily:mono}} onPaste={handlePaste}>
+    <div className="app-root" style={{ background: C.bg, fontFamily: mono }} onPaste={handlePaste}>
 
       {/* Carousel */}
       {carousel && (
         <div className="carousel-backdrop" onClick={closeCarousel}>
-          <img src={carousel.images[carousel.index].dataUrl} className="carousel-img" alt="" onClick={e=>e.stopPropagation()}/>
+          <img src={carousel.images[carousel.index].dataUrl} className="carousel-img" alt="" onClick={e => e.stopPropagation()} />
           {carousel.images.length > 1 && (
             <>
-              <button className="carousel-btn carousel-btn-prev" onClick={e=>{e.stopPropagation();carouselPrev();}} aria-label="Previous">‹</button>
-              <button className="carousel-btn carousel-btn-next" onClick={e=>{e.stopPropagation();carouselNext();}} aria-label="Next">›</button>
-              <div className="carousel-dots" onClick={e=>e.stopPropagation()}>
-                {carousel.images.map((_,i)=>(
-                  <button key={i} className={`carousel-dot${i===carousel.index?' active':''}`} onClick={()=>setCarousel(c=>({...c,index:i}))}/>
+              <button className="carousel-btn carousel-btn-prev" onClick={e => { e.stopPropagation(); carouselPrev(); }} aria-label="Previous">‹</button>
+              <button className="carousel-btn carousel-btn-next" onClick={e => { e.stopPropagation(); carouselNext(); }} aria-label="Next">›</button>
+              <div className="carousel-dots" onClick={e => e.stopPropagation()}>
+                {carousel.images.map((_, i) => (
+                  <button key={i} className={`carousel-dot${i === carousel.index ? ' active' : ''}`} onClick={() => setCarousel(c => ({ ...c, index: i }))} />
                 ))}
               </div>
-              <div className="carousel-counter">{carousel.index+1} / {carousel.images.length}</div>
+              <div className="carousel-counter">{carousel.index + 1} / {carousel.images.length}</div>
             </>
           )}
           <button className="carousel-close" onClick={closeCarousel}>&times;</button>
@@ -376,164 +414,169 @@ export default function PromptNotepad() {
       )}
 
       {toast && (
-        <div className="toast" style={{background:toastBg,color:toastFg}}>
-          {toast.type==='error'?'⚠️':toast.type==='warn'?'⚡':'✓'} {toast.msg}
+        <div className="toast" style={{ background: toastBg, color: toastFg }}>
+          {toast.type === 'error' ? '⚠️' : toast.type === 'warn' ? '⚡' : '✓'} {toast.msg}
         </div>
       )}
 
-      {mobOpen && <div className="mob-overlay" onClick={()=>setMobOpen(false)}/>}
+      {mobOpen && <div className="mob-overlay" onClick={() => setMobOpen(false)} />}
 
-      <div className="app-frame" style={{border:`1px solid ${C.border}`,boxShadow:"0 0 80px rgba(0,0,0,0.55)"}}>
+      <div className="app-frame" style={{ border: `1px solid ${C.border}`, boxShadow: "0 0 80px rgba(0,0,0,0.55)" }}>
 
         {/* Mobile header */}
-        <div className="mob-header" style={{background:C.surface,borderBottom:`1px solid ${C.border}`}}>
-          <button className="mob-hamburger" onClick={()=>setMobOpen(o=>!o)}>
-            <span style={{background:C.text}}/><span style={{background:C.text}}/><span style={{background:C.text}}/>
+        <div className="mob-header" style={{ background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+          <button className="mob-hamburger" onClick={() => setMobOpen(o => !o)}>
+            <span style={{ background: C.text }} /><span style={{ background: C.text }} /><span style={{ background: C.text }} />
           </button>
-          <span style={{color:C.accent,fontSize:15,fontWeight:700,letterSpacing:"0.07em"}}>⌘ PROMPTS</span>
-          <button onClick={toggleTheme} style={{background:"transparent",border:`1px solid ${C.border}`,color:C.dim,borderRadius:4,width:30,height:30,cursor:"pointer",fontSize:14}}>{theme==="dark"?"☀":"☾"}</button>
+          <span style={{ color: C.accent, fontSize: 15, fontWeight: 700, letterSpacing: "0.07em" }}>⌘ PROMPTS</span>
+          <button onClick={toggleTheme} style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.dim, borderRadius: 4, width: 30, height: 30, cursor: "pointer", fontSize: 14 }}>{theme === "dark" ? "☀" : "☾"}</button>
         </div>
 
 
         {/* Sidebar */}
-        <aside className={`sidebar${mobOpen?' mob-open':''}`} style={{background:C.surface,borderRight:`1px solid ${C.border}`}}>
-          <div style={{flexShrink:0,borderBottom:`1px solid ${C.border}`}}>
+        <aside className={`sidebar${mobOpen ? ' mob-open' : ''}`} style={{ background: C.surface, borderRight: `1px solid ${C.border}` }}>
+          <div style={{ flexShrink: 0, borderBottom: `1px solid ${C.border}` }}>
             {/* Row 1: title + new button */}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 14px 8px"}}>
-              <span style={{color:C.accent,fontSize:15,fontWeight:700,letterSpacing:"0.07em"}}>⌘ PROMPTS</span>
-              <button onClick={createNote} style={{background:C.accent,color:"#000",border:"none",borderRadius:4,width:26,height:26,fontSize:20,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 14px 8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button className="sidebar-close-btn" onClick={() => setMobOpen(false)}
+                  style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.dim, borderRadius: 4, width: 26, height: 26, cursor: "pointer", fontSize: 16, display: "none", alignItems: "center", justifyContent: "center" }}>
+                  &times;
+                </button>
+                <span style={{ color: C.accent, fontSize: 15, fontWeight: 700, letterSpacing: "0.07em" }}>⌘ PROMPTS</span>
+              </div>
+              <button onClick={createNote} style={{ background: C.accent, color: "#000", border: "none", borderRadius: 4, width: 26, height: 26, fontSize: 20, cursor: "pointer", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
             </div>
             {/* Row 2: tag filter icons */}
-            <div style={{display:"flex",gap:4,padding:"0 14px 10px"}}>
-              {RAIL.map(r=>(
-                <button key={String(r.id)} onClick={()=>setFilterTag(filterTag===r.id?null:r.id)} title={r.label}
-                  style={{flex:1,background:filterTag===r.id?C.accent+"22":"transparent",border:`1px solid ${filterTag===r.id?C.accent+"66":C.border}`,borderRadius:4,height:26,fontSize:13,cursor:"pointer"}}>{r.icon}</button>
+            <div style={{ display: "flex", gap: 4, padding: "0 14px 10px" }}>
+              {RAIL.map(r => (
+                <button key={String(r.id)} onClick={() => setFilterTag(filterTag === r.id ? null : r.id)} title={r.label}
+                  style={{ flex: 1, background: filterTag === r.id ? C.accent + "22" : "transparent", border: `1px solid ${filterTag === r.id ? C.accent + "66" : C.border}`, borderRadius: 4, height: 26, fontSize: 13, cursor: "pointer" }}>{r.icon}</button>
               ))}
             </div>
           </div>
 
           <div className="sidebar-list">
-            {filteredNotes.length===0&&<div style={{color:C.muted,fontSize:13,textAlign:"center",padding:"32px 14px",lineHeight:1.8}}>{filterTag ? `No ${filterTag} prompts.` : "No prompts yet."}<br/>{filterTag ? "" : "Hit + to start."}</div>}
-            {filteredNotes.map(n=>{
+            {filteredNotes.length === 0 && <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: "32px 14px", lineHeight: 1.8 }}>{filterTag ? `No ${filterTag} prompts.` : "No prompts yet."}<br />{filterTag ? "" : "Hit + to start."}</div>}
+            {filteredNotes.map(n => {
               const isActive = n.id === activeId;
-              const isHovered = hoveredId === n.id;
               return (
-              <div key={n.id}
-                className="note-row"
-                onClick={()=>setActiveId(n.id)}
-                onMouseEnter={()=>setHoveredId(n.id)}
-                onMouseLeave={()=>setHoveredId(null)}
-                style={{padding:"11px 14px 8px",cursor:"pointer",position:"relative",borderLeft:`2px solid ${isActive?C.accent:"transparent"}`,background:isActive?C.surface2:"transparent"}}>
-                {/* Title row */}
-                <div style={{color:C.text,fontSize:13,fontWeight:600,marginBottom:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",paddingRight:22}}>{n.title}</div>
-                {/* Tag badges */}
-                {(n.important||n.personal||n.client) && (
-                  <div style={{display:"flex",gap:4,marginBottom:4,flexWrap:"wrap"}}>
-                    {n.important && <span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#f5a62322",color:"#f5a623",border:"1px solid #f5a62344"}}>⭐ important</span>}
-                    {n.personal  && <span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#4a9eff22",color:"#4a9eff",border:"1px solid #4a9eff44"}}>👤 personal</span>}
-                    {n.client    && <span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#a855f722",color:"#a855f7",border:"1px solid #a855f744"}}>💼 client</span>}
+                <div key={n.id}
+                  className="note-row"
+                  onClick={() => { setActiveId(n.id); setMobOpen(false); }}
+                  style={{ padding: "11px 14px 8px", cursor: "pointer", position: "relative", borderLeft: `2px solid ${isActive ? C.accent : "transparent"}`, background: isActive ? C.surface2 : "transparent" }}>
+                  {/* Title row */}
+                  <div style={{ color: C.text, fontSize: 13, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingRight: 12 }}>{n.title}</div>
+                  {/* Tag badges */}
+                  {(n.important || n.personal || n.client) && (
+                    <div style={{ display: "flex", gap: 4, marginBottom: 4, flexWrap: "wrap" }}>
+                      {n.important && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#f5a62322", color: "#f5a623", border: "1px solid #f5a62344" }}>⭐ important</span>}
+                      {n.personal && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#4a9eff22", color: "#4a9eff", border: "1px solid #4a9eff44" }}>👤 personal</span>}
+                      {n.client && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#a855f722", color: "#a855f7", border: "1px solid #a855f744" }}>💼 client</span>}
+                    </div>
+                  )}
+                  <div style={{ color: C.bright, fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{timeAgo(n.updatedAt)}</div>
+                  <div style={{ color: C.dim, fontSize: 11 }}>
+                    {formatDateTime(n.updatedAt)}
+                    {n.images?.length > 0 && <span style={{ marginLeft: 6 }}>🖼 {n.images.length}</span>}
                   </div>
-                )}
-                <div style={{color:C.bright,fontSize:12,fontWeight:600,marginBottom:2}}>{timeAgo(n.updatedAt)}</div>
-                <div style={{color:C.dim,fontSize:11}}>
-                  {formatDateTime(n.updatedAt)}
-                  {n.images?.length>0&&<span style={{marginLeft:6}}>🖼 {n.images.length}</span>}
+                  {/* Delete button */}
+                  <button
+                    onClick={e => { e.stopPropagation(); deleteNote(n.id); }}
+                    title="Delete prompt"
+                    className="note-delete-btn"
+                    style={{ position: "absolute", top: 10, right: 4, background: "#ff444422", border: "1px solid #ff444455", color: "#ff6666", width: 20, height: 20, borderRadius: "50%", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, fontWeight: 700, transition: "background 0.15s, color 0.15s, border-color 0.15s" }}
+                  >×</button>
+                  {/* Hover tag strip */}
+                  <div className="tag-bar" style={{ display: "flex", gap: 4, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>
+                    {[{ tag: "important", icon: "⭐", col: "#f5a623" }, { tag: "personal", icon: "👤", col: "#4a9eff" }, { tag: "client", icon: "💼", col: "#a855f7" }].map(({ tag, icon, col }) => (
+                      <button key={tag}
+                        onClick={e => { e.stopPropagation(); toggleTag(n.id, tag); }}
+                        title={`Mark as ${tag}`}
+                        style={{
+                          flex: 1, fontSize: 11, padding: "3px 0", borderRadius: 4, cursor: "pointer", fontFamily: mono,
+                          background: n[tag] ? col + "33" : "transparent",
+                          border: `1px solid ${n[tag] ? col : C.border}`,
+                          color: n[tag] ? col : C.dim,
+                          transition: "all 0.15s",
+                        }}>{icon}</button>
+                    ))}
+                  </div>
                 </div>
-                {/* Delete button */}
-                <button
-                  onClick={e=>{e.stopPropagation();deleteNote(n.id);}}
-                  title="Delete prompt"
-                  className="note-delete-btn"
-                  style={{position:"absolute",top:8,right:7,background:"#ff444422",border:"1px solid #ff444455",color:"#ff6666",width:22,height:22,borderRadius:"50%",fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,fontWeight:700,transition:"background 0.15s, color 0.15s, border-color 0.15s"}}
-                >×</button>
-                {/* Hover tag strip */}
-                <div className="tag-bar" style={{display:"flex",gap:4,marginTop:6,paddingTop:6,borderTop:`1px solid ${C.border}`}}>
-                  {[{tag:"important",icon:"⭐",col:"#f5a623"},{tag:"personal",icon:"👤",col:"#4a9eff"},{tag:"client",icon:"💼",col:"#a855f7"}].map(({tag,icon,col})=>(
-                    <button key={tag}
-                      onClick={e=>{e.stopPropagation();toggleTag(n.id,tag);}}
-                      title={`Mark as ${tag}`}
-                      style={{flex:1,fontSize:11,padding:"3px 0",borderRadius:4,cursor:"pointer",fontFamily:mono,
-                        background: n[tag] ? col+"33" : "transparent",
-                        border: `1px solid ${n[tag] ? col : C.border}`,
-                        color: n[tag] ? col : C.dim,
-                        transition:"all 0.15s",
-                      }}>{icon}</button>
-                  ))}
-                </div>
-              </div>
-            );})}
+              );
+            })}
           </div>
 
-          <div className="sidebar-footer" style={{borderTop:`1px solid ${C.border}`,padding:"10px 14px"}}>
-            <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8}}>
-              <div style={{width:6,height:6,borderRadius:"50%",background:saving?"#f5a623":C.accent,flexShrink:0}}/>
-              <span style={{color:C.muted,fontSize:11}}>{saving?"Saving…":"Synced ✓"}</span>
+          <div className="sidebar-footer" style={{ borderTop: `1px solid ${C.border}`, padding: "10px 14px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: saving ? "#f5a623" : C.accent, flexShrink: 0 }} />
+              <span style={{ color: C.muted, fontSize: 11 }}>{saving ? "Saving…" : "Synced ✓"}</span>
             </div>
-            <div style={{color:C.muted,fontSize:10,marginBottom:6,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{user.email}</div>
-            <button onClick={signOut} style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,fontFamily:mono,fontSize:10,padding:"4px 10px",borderRadius:4,cursor:"pointer",width:"100%"}}>Sign out</button>
+            <div style={{ color: C.muted, fontSize: 10, marginBottom: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
+            <button onClick={signOut} style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontFamily: mono, fontSize: 10, padding: "4px 10px", borderRadius: 4, cursor: "pointer", width: "100%" }}>Sign out</button>
           </div>
         </aside>
 
         {/* Editor */}
-        <main className="editor-main" style={{background:C.bg}}>
-          {!activeNote?(
-            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
-              <div style={{fontSize:52,opacity:0.1}}>✎</div>
-              <div style={{color:C.muted,fontSize:15}}>Create a new prompt to get started</div>
-              <button onClick={createNote} style={{background:C.accent,color:"#000",border:"none",borderRadius:5,padding:"10px 24px",fontFamily:mono,fontSize:13,fontWeight:700,cursor:"pointer",letterSpacing:"0.06em"}}>+ NEW PROMPT</button>
+        <main className="editor-main" style={{ background: C.bg }}>
+          {!activeNote ? (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+              <div style={{ fontSize: 52, opacity: 0.1 }}>✎</div>
+              <div style={{ color: C.muted, fontSize: 15 }}>Create a new prompt to get started</div>
+              <button onClick={createNote} style={{ background: C.accent, color: "#000", border: "none", borderRadius: 5, padding: "10px 24px", fontFamily: mono, fontSize: 13, fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em" }}>+ NEW PROMPT</button>
             </div>
-          ):(
+          ) : (
             <>
-              <div className="editor-toolbar" style={{display:"flex",alignItems:"center",gap:8,padding:"12px 18px",borderBottom:`1px solid ${C.border}`,background:C.surface,flexShrink:0}}>
-                <input value={activeNote.title} onChange={e=>updateNote(activeNote.id,{title:e.target.value})} placeholder="Prompt title…"
-                  style={{flex:1,background:"transparent",border:"none",outline:"none",color:C.text,fontFamily:mono,fontSize:15,fontWeight:700,minWidth:0}}/>
-                <div className="editor-tools" style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
+              <div className="editor-toolbar" style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 18px", borderBottom: `1px solid ${C.border}`, background: C.surface, flexShrink: 0 }}>
+                <input value={activeNote.title} onChange={e => updateNote(activeNote.id, { title: e.target.value })} placeholder="Prompt title…"
+                  style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: C.text, fontFamily: mono, fontSize: 15, fontWeight: 700, minWidth: 0 }} />
+                <div className="editor-tools" style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
                   <button onClick={copyText} className="tool-btn" style={toolBtnStyle}>Copy</button>
                   <button onClick={downloadTxt} className="tool-btn" style={toolBtnStyle}>↓ .txt</button>
                   <button onClick={downloadDoc} className="tool-btn" style={toolBtnStyle}>↓ .doc</button>
-                  <button onClick={()=>fileInputRef.current?.click()} className="tool-btn" style={toolBtnStyle}>+ Image</button>
-                  <button onClick={toggleTheme} title={theme==="dark"?"Light mode":"Dark mode"}
-                    style={{...toolBtnStyle,fontSize:15,padding:"4px 9px"}}>
-                    {theme==="dark"?"☀":"☾"}
+                  <button onClick={() => fileInputRef.current?.click()} className="tool-btn" style={toolBtnStyle}>+ Image</button>
+                  <button onClick={toggleTheme} title={theme === "dark" ? "Light mode" : "Dark mode"}
+                    style={{ ...toolBtnStyle, fontSize: 15, padding: "4px 9px" }}>
+                    {theme === "dark" ? "☀" : "☾"}
                   </button>
                 </div>
               </div>
               <div className="editor-body">
 
-              <textarea ref={editorRef} value={activeNote.text}
-                onChange={e=>{
-                  const text=e.target.value;
-                  const firstLine=text.trim().split("\n")[0].slice(0,50);
-                  updateNote(activeNote.id,{text,title:firstLine||"Untitled Prompt"});
-                }}
-                placeholder={"Write your prompt here…\n\nPaste image: Ctrl+V / Cmd+V\nOr click '+ Image' to attach from file"}
-                spellCheck={false}
-                style={{flex:1,background:"transparent",border:"none",outline:"none",resize:"none",color:C.text,fontFamily:mono,fontSize:15,lineHeight:1.85,padding:"22px",minHeight:200}}
-              />
+                <textarea ref={editorRef} value={activeNote.text}
+                  onChange={e => {
+                    const text = e.target.value;
+                    const firstLine = text.trim().split("\n")[0].slice(0, 50);
+                    updateNote(activeNote.id, { text, title: firstLine || "Untitled Prompt" });
+                  }}
+                  placeholder={"Write your prompt here…\n\nPaste image: Ctrl+V / Cmd+V\nOr click '+ Image' to attach from file"}
+                  spellCheck={false}
+                  style={{ flex: 1, background: "transparent", border: "none", outline: "none", resize: "none", color: C.text, fontFamily: mono, fontSize: 15, lineHeight: 1.85, padding: "22px", minHeight: 200 }}
+                />
 
-              {activeNote.images?.length>0&&(
-                <div style={{display:"flex",flexWrap:"wrap",gap:10,padding:"0 22px 14px"}}>
-                  {activeNote.images.map((img,idx)=>(
-                    <div key={img.id} style={{position:"relative",border:`1px solid ${C.border}`,borderRadius:6,overflow:"hidden",lineHeight:0}}>
-                      <img src={img.dataUrl} onClick={()=>openCarousel(activeNote.images, idx)}
-                        className="img-thumb" style={{maxWidth:320,maxHeight:240,display:"block",objectFit:"contain",background:"#111",cursor:"zoom-in"}} alt=""/>
-                      <button onClick={()=>removeImage(activeNote.id,img.id)} style={{position:"absolute",top:5,right:5,background:"rgba(0,0,0,0.75)",border:"none",color:"#fff",width:22,height:22,borderRadius:"50%",fontSize:15,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-                    </div>
-                  ))}
+                {activeNote.images?.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: "0 22px 14px" }}>
+                    {activeNote.images.map((img, idx) => (
+                      <div key={img.id} style={{ position: "relative", border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden", lineHeight: 0 }}>
+                        <img src={img.dataUrl} onClick={() => openCarousel(activeNote.images, idx)}
+                          className="img-thumb" style={{ maxWidth: 320, maxHeight: 240, display: "block", objectFit: "contain", background: "#111", cursor: "zoom-in" }} alt="" />
+                        <button onClick={() => removeImage(activeNote.id, img.id)} style={{ position: "absolute", top: 5, right: 5, background: "rgba(0,0,0,0.75)", border: "none", color: "#fff", width: 22, height: 22, borderRadius: "50%", fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ padding: "8px 22px", borderTop: `1px solid ${C.border}`, color: C.muted, fontSize: 12, display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
+                  <span>⌘/Ctrl+V to paste image · or click + Image</span>
+                  <span>{activeNote.text.length} chars</span>
                 </div>
-              )}
-
-              <div style={{padding:"8px 22px",borderTop:`1px solid ${C.border}`,color:C.muted,fontSize:12,display:"flex",justifyContent:"space-between",flexShrink:0}}>
-                <span>⌘/Ctrl+V to paste image · or click + Image</span>
-                <span>{activeNote.text.length} chars</span>
-              </div>
               </div>{/* end editor-body */}
             </>
           )}
         </main>
       </div>
 
-      <input ref={fileInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleFileInputWithToast}/>
+      <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileInputWithToast} />
     </div>
   );
 }
