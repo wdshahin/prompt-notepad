@@ -132,7 +132,10 @@ export default function PromptNotepad() {
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [notes, setNotes] = useState([]);
-  const [activeId, setActiveId] = useState(null);
+  const [activeId, setActiveId] = useState(() => {
+    const hash = window.location.hash;
+    return hash ? hash.slice(1) : null;
+  });
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
@@ -151,6 +154,29 @@ export default function PromptNotepad() {
   const carouselNext = () => setCarousel(c => ({ ...c, index: (c.index + 1) % c.images.length }));
 
   useEffect(() => { document.body.style.background = C.bg; }, [C.bg]);
+
+  useEffect(() => {
+    if (activeId) {
+      if (window.location.hash !== `#${activeId}`) {
+        window.location.hash = activeId;
+      }
+    } else {
+      if (window.location.hash !== "") {
+        window.location.hash = "";
+      }
+    }
+  }, [activeId]);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1);
+      if (hash && notes.some(n => n.id === hash)) {
+        setActiveId(hash);
+      }
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, [notes]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -174,7 +200,15 @@ export default function PromptNotepad() {
         updatedAt: new Date(row.updated_at).getTime(),
       }));
       setNotes(mapped);
-      if (mapped.length > 0) setActiveId(mapped[0].id);
+      
+      const urlHash = window.location.hash.slice(1);
+      const hasNoteInHash = urlHash && mapped.some(n => n.id === urlHash);
+      if (hasNoteInHash) {
+        setActiveId(urlHash);
+      } else if (mapped.length > 0) {
+        setActiveId(mapped[0].id);
+      }
+      
       setFetchError(null);
     } catch (e) {
       console.error(e);
@@ -184,8 +218,9 @@ export default function PromptNotepad() {
     }
   };
 
+  const userId = user?.id;
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       setTimeout(() => {
         setNotes([]);
         setLoaded(false);
@@ -195,7 +230,7 @@ export default function PromptNotepad() {
     setTimeout(() => {
       fetchNotes();
     }, 0);
-  }, [user]);
+  }, [userId]);
 
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
