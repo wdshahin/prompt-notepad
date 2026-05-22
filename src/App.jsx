@@ -157,21 +157,33 @@ export default function PromptNotepad() {
 
   useEffect(() => {
     if (activeId) {
-      if (window.location.hash !== `#${activeId}`) {
-        window.location.hash = activeId;
+      const activeNote = notes.find(n => n.id === activeId);
+      if (activeNote) {
+        const slug = activeNote.title.trim().replace(/[^a-zA-Z0-9]/g, "") || activeNote.id;
+        if (window.location.hash !== `#${slug}`) {
+          window.history.replaceState(null, "", `#${slug}`);
+        }
       }
     } else {
       if (window.location.hash !== "") {
-        window.location.hash = "";
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
       }
     }
-  }, [activeId]);
+  }, [activeId, notes]);
 
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);
-      if (hash && notes.some(n => n.id === hash)) {
-        setActiveId(hash);
+      if (hash) {
+        const cleanHash = decodeURIComponent(hash).toLowerCase().replace(/[^a-zA-Z0-9]/g, "");
+        const match = notes.find(n => {
+          if (n.id === hash) return true;
+          const noteSlug = (n.title || "").trim().toLowerCase().replace(/[^a-zA-Z0-9]/g, "");
+          return noteSlug === cleanHash;
+        });
+        if (match) {
+          setActiveId(match.id);
+        }
       }
     };
     window.addEventListener("hashchange", handleHashChange);
@@ -202,9 +214,24 @@ export default function PromptNotepad() {
       setNotes(mapped);
       
       const urlHash = window.location.hash.slice(1);
-      const hasNoteInHash = urlHash && mapped.some(n => n.id === urlHash);
-      if (hasNoteInHash) {
-        setActiveId(urlHash);
+      
+      const findNoteByHash = (hash, list) => {
+        if (!hash) return null;
+        const cleanHash = decodeURIComponent(hash).toLowerCase().replace(/[^a-zA-Z0-9]/g, "");
+        // 1. Try exact ID match
+        const matchById = list.find(n => n.id === hash);
+        if (matchById) return matchById;
+        // 2. Try clean slug match (alphanumeric only)
+        const matchBySlug = list.find(n => {
+          const noteSlug = (n.title || "").trim().toLowerCase().replace(/[^a-zA-Z0-9]/g, "");
+          return noteSlug === cleanHash;
+        });
+        return matchBySlug || null;
+      };
+
+      const matchedNote = findNoteByHash(urlHash, mapped);
+      if (matchedNote) {
+        setActiveId(matchedNote.id);
       } else if (mapped.length > 0) {
         setActiveId(mapped[0].id);
       }
