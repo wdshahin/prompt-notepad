@@ -60,7 +60,10 @@ body { background: #0f0f0f; transition: background 0.25s; }
 /* ── Editor main ───────────────────────────────────────────── */
 .editor-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 .editor-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
-.editor-body textarea { flex: 1; min-height: 200px; }
+.editor-text-wrap { flex: 1; position: relative; min-height: 200px; overflow: hidden; }
+.editor-text-wrap textarea { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+.editor-text-wrap textarea::placeholder { color: #555; }
+.editor-text-wrap textarea::selection { background: rgba(200,255,87,0.25); }
 
 /* ── Tool buttons ──────────────────────────────────────────── */
 .tool-btn:hover { border-color: #c8ff57 !important; color: #c8ff57 !important; }

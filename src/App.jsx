@@ -48,6 +48,40 @@ function formatDateTime(ts) {
   return `${day} ${month}, ${hh}:${mm}`;
 }
 
+function makeSlug(title, createdAt) {
+  const clean = (title || "").trim().replace(/[^a-zA-Z0-9]/g, "").slice(0, 14);
+  const d = new Date(createdAt);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${clean || "note"}-${dd}-${mm}-${yyyy}`;
+}
+
+function estimateBytes(str) {
+  return new Blob([str || ""]).size;
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function highlightLinks(text, C) {
+  const URL_RE = /https?:\/\/[^\s<>"']+/g;
+  let result = "";
+  let lastIndex = 0;
+  let match;
+  const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  while ((match = URL_RE.exec(text)) !== null) {
+    result += esc(text.slice(lastIndex, match.index));
+    result += `<span style="color:${C.accent};text-decoration:underline;text-underline-offset:3px;text-decoration-color:${C.accent}99">${esc(match[0])}</span>`;
+    lastIndex = URL_RE.lastIndex;
+  }
+  result += esc(text.slice(lastIndex));
+  return result + "\n";
+}
+
 function AuthScreen({ C, theme, toggleTheme }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
@@ -145,6 +179,7 @@ export default function PromptNotepad() {
   const [mobOpen, setMobOpen] = useState(false);
   const saveTimer = useRef(null);
   const editorRef = useRef(null);
+  const backdropRef = useRef(null);
   const fileInputRef = useRef(null);
   const activeNote = notes.find(n => n.id === activeId) || null;
 
@@ -159,7 +194,7 @@ export default function PromptNotepad() {
     if (activeId) {
       const activeNote = notes.find(n => n.id === activeId);
       if (activeNote) {
-        const slug = activeNote.title.trim().replace(/[^a-zA-Z0-9]/g, "") || activeNote.id;
+        const slug = makeSlug(activeNote.title, activeNote.createdAt);
         if (window.location.hash !== `#${slug}`) {
           window.history.replaceState(null, "", `#${slug}`);
         }
@@ -175,11 +210,11 @@ export default function PromptNotepad() {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);
       if (hash) {
-        const cleanHash = decodeURIComponent(hash).toLowerCase().replace(/[^a-zA-Z0-9]/g, "");
+        const decoded = decodeURIComponent(hash);
         const match = notes.find(n => {
           if (n.id === hash) return true;
-          const noteSlug = (n.title || "").trim().toLowerCase().replace(/[^a-zA-Z0-9]/g, "");
-          return noteSlug === cleanHash;
+          const noteSlug = makeSlug(n.title, n.createdAt);
+          return noteSlug === decoded;
         });
         if (match) {
           setActiveId(match.id);
@@ -217,14 +252,14 @@ export default function PromptNotepad() {
       
       const findNoteByHash = (hash, list) => {
         if (!hash) return null;
-        const cleanHash = decodeURIComponent(hash).toLowerCase().replace(/[^a-zA-Z0-9]/g, "");
+        const decoded = decodeURIComponent(hash);
         // 1. Try exact ID match
         const matchById = list.find(n => n.id === hash);
         if (matchById) return matchById;
-        // 2. Try clean slug match (alphanumeric only)
+        // 2. Try slug match (title-14chars-DD-MM-YYYY)
         const matchBySlug = list.find(n => {
-          const noteSlug = (n.title || "").trim().toLowerCase().replace(/[^a-zA-Z0-9]/g, "");
-          return noteSlug === cleanHash;
+          const noteSlug = makeSlug(n.title, n.createdAt);
+          return noteSlug === decoded;
         });
         return matchBySlug || null;
       };
@@ -362,6 +397,30 @@ export default function PromptNotepad() {
     }
   }, [activeId, addImageToNote]);
 
+  const handleLinkClick = useCallback((e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const textarea = editorRef.current;
+    if (!textarea) return;
+    const pos = textarea.selectionStart;
+    const text = activeNote?.text || "";
+    const URL_RE = /https?:\/\/[^\s<>"']+/g;
+    let match;
+    while ((match = URL_RE.exec(text)) !== null) {
+      if (pos >= match.index && pos <= match.index + match[0].length) {
+        e.preventDefault();
+        window.open(match[0], "_blank", "noopener,noreferrer");
+        return;
+      }
+    }
+  }, [activeNote]);
+
+  const syncBackdropScroll = useCallback((e) => {
+    if (backdropRef.current) {
+      backdropRef.current.scrollTop = e.target.scrollTop;
+      backdropRef.current.scrollLeft = e.target.scrollLeft;
+    }
+  }, []);
+
 
   const copyText = () => { if (!activeNote?.text) return; navigator.clipboard.writeText(activeNote.text).then(() => showToast("Copied ✓", "success")).catch(() => showToast("Copy failed", "error")); };
 
@@ -414,6 +473,16 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
   const signOut = async () => { await supabase.auth.signOut(); setNotes([]); setActiveId(null); setLoaded(false); };
 
   const filteredNotes = filterTag ? notes.filter(n => n[filterTag]) : notes;
+
+  // Storage usage calculation
+  const STORAGE_LIMIT = 500 * 1024 * 1024; // 500 MB
+  const storageUsed = notes.reduce((acc, n) => {
+    let size = estimateBytes(n.title) + estimateBytes(n.text);
+    (n.images || []).forEach(img => { size += estimateBytes(img.dataUrl || ""); });
+    return acc + size;
+  }, 0);
+  const storagePercent = Math.min((storageUsed / STORAGE_LIMIT) * 100, 100);
+  const storageColor = storagePercent > 90 ? C.danger : storagePercent > 70 ? "#f5a623" : C.accent;
 
   const RAIL = [
     { id: null, icon: "📋", label: "All" },
@@ -533,8 +602,8 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
                   {(n.important || n.personal || n.client) && (
                     <div style={{ display: "flex", gap: 4, marginBottom: 4, flexWrap: "wrap" }}>
                       {n.important && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#f5a62322", color: "#f5a623", border: "1px solid #f5a62344" }}>⭐ important</span>}
-                      {n.personal && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#4a9eff22", color: "#4a9eff", border: "1px solid #4a9eff44" }}>👤 personal</span>}
-                      {n.client && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#a855f722", color: "#a855f7", border: "1px solid #a855f744" }}>💼 client</span>}
+                      {n.personal && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#22d3ee30", color: "#22d3ee", border: "1px solid #22d3ee55" }}>👤 personal</span>}
+                      {n.client && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#e879f930", color: "#e879f9", border: "1px solid #e879f955" }}>💼 client</span>}
                     </div>
                   )}
                   <div style={{ color: C.bright, fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{timeAgo(n.updatedAt)}</div>
@@ -551,7 +620,7 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
                   >×</button>
                   {/* Hover tag strip */}
                   <div className="tag-bar" style={{ display: "flex", gap: 4, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>
-                    {[{ tag: "important", icon: "⭐", col: "#f5a623" }, { tag: "personal", icon: "👤", col: "#4a9eff" }, { tag: "client", icon: "💼", col: "#a855f7" }].map(({ tag, icon, col }) => (
+                    {[{ tag: "important", icon: "⭐", col: "#f5a623" }, { tag: "personal", icon: "👤", col: "#22d3ee" }, { tag: "client", icon: "💼", col: "#e879f9" }].map(({ tag, icon, col }) => (
                       <button key={tag}
                         onClick={e => { e.stopPropagation(); toggleTag(n.id, tag); }}
                         title={`Mark as ${tag}`}
@@ -573,6 +642,17 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
             <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
               <div style={{ width: 6, height: 6, borderRadius: "50%", background: saving ? "#f5a623" : C.accent, flexShrink: 0 }} />
               <span style={{ color: C.muted, fontSize: 11 }}>{saving ? "Saving…" : "Synced ✓"}</span>
+            </div>
+            {/* Storage usage bar */}
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <span style={{ color: C.dim, fontSize: 10 }}>Storage</span>
+                <span style={{ color: storageColor, fontSize: 10, fontWeight: 600 }}>{formatSize(storageUsed)} / 500 MB</span>
+              </div>
+              <div style={{ height: 4, background: C.surface2, borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${storagePercent}%`, background: storageColor, borderRadius: 2, transition: "width 0.3s ease, background 0.3s ease" }} />
+              </div>
+              {storagePercent > 90 && <div style={{ color: C.danger, fontSize: 9, marginTop: 3 }}>⚠ Storage almost full</div>}
             </div>
             <div style={{ color: C.muted, fontSize: 10, marginBottom: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
             <button onClick={signOut} style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontFamily: mono, fontSize: 10, padding: "4px 10px", borderRadius: 4, cursor: "pointer", width: "100%" }}>Sign out</button>
@@ -605,16 +685,38 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
               </div>
               <div className="editor-body">
 
-                <textarea ref={editorRef} value={activeNote.text}
-                  onChange={e => {
-                    const text = e.target.value;
-                    const firstLine = text.trim().split("\n")[0].slice(0, 50);
-                    updateNote(activeNote.id, { text, title: firstLine || "Untitled Prompt" });
-                  }}
-                  placeholder={"Write your prompt here…\n\nPaste image: Ctrl+V / Cmd+V\nOr click '+ Image' to attach from file"}
-                  spellCheck={false}
-                  style={{ flex: 1, background: "transparent", border: "none", outline: "none", resize: "none", color: C.text, fontFamily: mono, fontSize: 15, lineHeight: 1.85, padding: "22px", minHeight: 200 }}
-                />
+                <div className="editor-text-wrap">
+                  <div
+                    ref={backdropRef}
+                    aria-hidden="true"
+                    className="editor-backdrop"
+                    style={{
+                      position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+                      padding: "22px", fontFamily: mono, fontSize: 15, lineHeight: 1.85,
+                      color: C.text, whiteSpace: "pre-wrap", wordBreak: "break-word",
+                      overflowY: "hidden", pointerEvents: "none", zIndex: 0,
+                    }}
+                    dangerouslySetInnerHTML={{ __html: highlightLinks(activeNote.text, C) }}
+                  />
+                  <textarea ref={editorRef} value={activeNote.text}
+                    onChange={e => {
+                      const text = e.target.value;
+                      const firstLine = text.trim().split("\n")[0].slice(0, 50);
+                      updateNote(activeNote.id, { text, title: firstLine || "Untitled Prompt" });
+                    }}
+                    onClick={handleLinkClick}
+                    onScroll={syncBackdropScroll}
+                    placeholder={"Write your prompt here…\n\nPaste image: Ctrl+V / Cmd+V\nOr click '+ Image' to attach from file"}
+                    spellCheck={false}
+                    style={{
+                      position: "relative", zIndex: 1,
+                      width: "100%", height: "100%",
+                      background: "transparent", border: "none", outline: "none", resize: "none",
+                      color: "transparent", caretColor: C.text,
+                      fontFamily: mono, fontSize: 15, lineHeight: 1.85, padding: "22px",
+                    }}
+                  />
+                </div>
 
                 {activeNote.images?.length > 0 && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: "0 22px 14px" }}>
@@ -629,7 +731,7 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
                 )}
 
                 <div style={{ padding: "8px 22px", borderTop: `1px solid ${C.border}`, color: C.muted, fontSize: 12, display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
-                  <span>⌘/Ctrl+V to paste image · or click + Image</span>
+                  <span>Ctrl+Click to open links · Ctrl+V paste image</span>
                   <span>{activeNote.text.length} chars</span>
                 </div>
               </div>{/* end editor-body */}
