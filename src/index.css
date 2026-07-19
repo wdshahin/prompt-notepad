@@ -1,6 +1,6 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
-body { background: #0f0f0f; transition: background 0.25s; }
+body { background: #0f0f0f; }
 
 @keyframes fadeIn  { from { opacity: 0; }                        to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
@@ -35,7 +35,7 @@ body { background: #0f0f0f; transition: background 0.25s; }
 
 /* ── Icon Rail ─────────────────────────────────────────────── */
 .rail { width: 50px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; padding-top: 12px; gap: 4px; }
-.rail-btn { position: relative; width: 36px; height: 36px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: all 0.15s; }
+.rail-btn { position: relative; width: 36px; height: 36px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: background-color 0.15s, border-color 0.15s; }
 .rail-btn .rail-tip {
   position: absolute; left: 52px; top: 50%; transform: translateY(-50%);
   background: #1a1a1a; color: #ccc; font-size: 11px; padding: 4px 9px;
@@ -55,22 +55,26 @@ body { background: #0f0f0f; transition: background 0.25s; }
 .note-row:hover .tag-bar { opacity: 1; pointer-events: auto; }
 
 /* ── Delete button ─────────────────────────────────────────── */
+.note-delete-btn { transition: background-color 0.15s, color 0.15s, border-color 0.15s; }
 .note-delete-btn:hover { background: #ff4444cc !important; border-color: #ff4444 !important; color: #fff !important; }
 
 /* ── Editor main ───────────────────────────────────────────── */
 .editor-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 .editor-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
 .editor-text-wrap { flex: 1; position: relative; min-height: 200px; overflow: hidden; }
-.editor-text-wrap textarea { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+.editor-text-wrap textarea {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  transition: none !important;
+}
 .editor-text-wrap textarea::placeholder { color: #555; }
 .editor-text-wrap textarea::selection { background: rgba(200,255,87,0.25); }
 
 /* ── Tool buttons ──────────────────────────────────────────── */
+.tool-btn { transition: border-color 0.15s, color 0.15s; }
 .tool-btn:hover { border-color: #c8ff57 !important; color: #c8ff57 !important; }
 .light .tool-btn:hover { border-color: #5a9e1e !important; color: #5a9e1e !important; }
 
-/* ── Theme transition ──────────────────────────────────────── */
-* { transition: background-color 0.2s, border-color 0.2s, color 0.15s; }
+/* ── Inputs — NEVER transition ─────────────────────────────── */
 textarea, input { transition: none !important; }
 
 /* ── Toast ─────────────────────────────────────────────────── */
@@ -106,7 +110,7 @@ textarea, input { transition: none !important; }
   background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
   color: #fff; width: 48px; height: 48px; border-radius: 50%;
   font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-  transition: background 0.15s;
+  transition: background-color 0.15s;
   backdrop-filter: blur(4px);
 }
 .carousel-btn:hover { background: rgba(255,255,255,0.18); }
@@ -127,12 +131,18 @@ textarea, input { transition: none !important; }
 }
 .carousel-dot {
   width: 7px; height: 7px; border-radius: 50%;
-  background: rgba(255,255,255,0.25); transition: background 0.15s;
+  background: rgba(255,255,255,0.25); transition: background-color 0.15s;
   cursor: pointer; border: none;
 }
 .carousel-dot.active { background: #fff; }
 
 .sidebar-close-btn { display: none !important; }
+
+/* ── Storage bar transition ────────────────────────────────── */
+.storage-bar-fill { transition: width 0.3s ease, background-color 0.3s ease; }
+
+/* ── Tag toggle buttons ────────────────────────────────────── */
+.tag-toggle-btn { transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
 
 /* ── Mobile hamburger ──────────────────────────────────────── */
 .mob-header { display: none; }
@@ -156,6 +166,7 @@ textarea, input { transition: none !important; }
     transform: translateX(-100%);
     transition: transform 0.28s ease;
     border-right: none !important;
+    will-change: transform;
   }
   .sidebar.mob-open { transform: translateX(0); box-shadow: 4px 0 32px rgba(0,0,0,0.6); }
 
@@ -176,7 +187,6 @@ textarea, input { transition: none !important; }
   }
   .mob-hamburger span {
     display: block; width: 22px; height: 2px; border-radius: 2px;
-    transition: background 0.15s;
   }
 
   /* Editor fills screen */

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -21,6 +21,13 @@ function getC(theme) {
     text: "#e0e0e0", muted: "#484848", dim: "#777", bright: "#bbb",
     danger: "#ff5555",
   };
+}
+
+// Cache theme colors to avoid recreating identical objects
+const COLORS_DARK = getC("dark");
+const COLORS_LIGHT = getC("light");
+function getCachedC(theme) {
+  return theme === "light" ? COLORS_LIGHT : COLORS_DARK;
 }
 
 function generateId() {
@@ -57,8 +64,11 @@ function makeSlug(title, createdAt) {
   return `${clean || "note"}-${dd}-${mm}-${yyyy}`;
 }
 
-function estimateBytes(str) {
-  return new Blob([str || ""]).size;
+// Fast byte estimate using TextEncoder (no Blob allocation)
+const _encoder = new TextEncoder();
+function estimateBytesFast(str) {
+  if (!str) return 0;
+  return _encoder.encode(str).byteLength;
 }
 
 function formatSize(bytes) {
@@ -67,18 +77,20 @@ function formatSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// Escape HTML chars
+const escapeHtml = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
 function highlightLinks(text, C) {
   const URL_RE = /https?:\/\/[^\s<>"']+/g;
   let result = "";
   let lastIndex = 0;
   let match;
-  const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   while ((match = URL_RE.exec(text)) !== null) {
-    result += esc(text.slice(lastIndex, match.index));
-    result += `<span style="color:${C.accent};text-decoration:underline;text-underline-offset:3px;text-decoration-color:${C.accent}99">${esc(match[0])}</span>`;
+    result += escapeHtml(text.slice(lastIndex, match.index));
+    result += `<span style="color:${C.accent};text-decoration:underline;text-underline-offset:3px;text-decoration-color:${C.accent}99">${escapeHtml(match[0])}</span>`;
     lastIndex = URL_RE.lastIndex;
   }
-  result += esc(text.slice(lastIndex));
+  result += escapeHtml(text.slice(lastIndex));
   return result + "\n";
 }
 
@@ -106,7 +118,7 @@ function AuthScreen({ C, theme, toggleTheme }) {
     } finally { setLoading(false); }
   };
 
-  const inp = { width: "100%", background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 5, padding: "10px 13px", color: C.text, fontFamily: mono, fontSize: 13, outline: "none", boxSizing: "border-box", transition: "none" };
+  const inp = { width: "100%", background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 5, padding: "10px 13px", color: C.text, fontFamily: mono, fontSize: 13, outline: "none", boxSizing: "border-box" };
 
   if (done) return (
     <div style={{ background: C.bg, height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: mono }}>
@@ -158,10 +170,90 @@ function AuthScreen({ C, theme, toggleTheme }) {
   );
 }
 
+// ─── Memoized sidebar note row ─────────────────────────────────
+const NoteRow = memo(function NoteRow({ note, isActive, C, onSelect, onDelete, onToggleTag }) {
+  return (
+    <div
+      className="note-row"
+      onClick={() => onSelect(note.id)}
+      style={{ padding: "11px 14px 8px", cursor: "pointer", position: "relative", borderLeft: `2px solid ${isActive ? C.accent : "transparent"}`, background: isActive ? C.surface2 : "transparent" }}>
+      {/* Title row */}
+      <div style={{ color: C.text, fontSize: 13, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingRight: 12 }}>{note.title}</div>
+      {/* Tag badges */}
+      {(note.important || note.personal || note.client) && (
+        <div style={{ display: "flex", gap: 4, marginBottom: 4, flexWrap: "wrap" }}>
+          {note.important && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#f5a62322", color: "#f5a623", border: "1px solid #f5a62344" }}>⭐ important</span>}
+          {note.personal && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#22d3ee30", color: "#22d3ee", border: "1px solid #22d3ee55" }}>👤 personal</span>}
+          {note.client && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#e879f930", color: "#e879f9", border: "1px solid #e879f955" }}>💼 client</span>}
+        </div>
+      )}
+      <div style={{ color: C.bright, fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{timeAgo(note.updatedAt)}</div>
+      <div style={{ color: C.dim, fontSize: 11 }}>
+        {formatDateTime(note.updatedAt)}
+        {note.images?.length > 0 && <span style={{ marginLeft: 6 }}>🖼 {note.images.length}</span>}
+      </div>
+      {/* Delete button */}
+      <button
+        onClick={e => { e.stopPropagation(); onDelete(note.id); }}
+        title="Delete prompt"
+        className="note-delete-btn"
+        style={{ position: "absolute", top: 10, right: 4, background: "#ff444422", border: "1px solid #ff444455", color: "#ff6666", width: 20, height: 20, borderRadius: "50%", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, fontWeight: 700 }}
+      >×</button>
+      {/* Hover tag strip */}
+      <div className="tag-bar" style={{ display: "flex", gap: 4, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>
+        {[{ tag: "important", icon: "⭐", col: "#f5a623" }, { tag: "personal", icon: "👤", col: "#22d3ee" }, { tag: "client", icon: "💼", col: "#e879f9" }].map(({ tag, icon, col }) => (
+          <button key={tag}
+            onClick={e => { e.stopPropagation(); onToggleTag(note.id, tag); }}
+            title={`Mark as ${tag}`}
+            className="tag-toggle-btn"
+            style={{
+              flex: 1, fontSize: 11, padding: "3px 0", borderRadius: 4, cursor: "pointer", fontFamily: mono,
+              background: note[tag] ? col + "33" : "transparent",
+              border: `1px solid ${note[tag] ? col : C.border}`,
+              color: note[tag] ? col : C.dim,
+            }}>{icon}</button>
+        ))}
+      </div>
+    </div>
+  );
+});
+
+// ─── Memoized link-highlighted backdrop ────────────────────────
+const EditorBackdrop = memo(function EditorBackdrop({ text, C, backdropRef }) {
+  const html = useMemo(() => highlightLinks(text, C), [text, C]);
+  return (
+    <div
+      ref={backdropRef}
+      aria-hidden="true"
+      className="editor-backdrop"
+      style={{
+        position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+        padding: "22px", fontFamily: mono, fontSize: 15, lineHeight: 1.85,
+        color: C.text, whiteSpace: "pre-wrap", wordBreak: "break-word",
+        overflowY: "hidden", pointerEvents: "none", zIndex: 0,
+      }}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+});
+
+const RAIL = [
+  { id: null, icon: "📋", label: "All" },
+  { id: "important", icon: "⭐", label: "Important" },
+  { id: "personal", icon: "👤", label: "Personal" },
+  { id: "client", icon: "💼", label: "Client" },
+];
+
+const TAG_DEFS = [
+  { tag: "important", icon: "⭐", col: "#f5a623" },
+  { tag: "personal", icon: "👤", col: "#22d3ee" },
+  { tag: "client", icon: "💼", col: "#e879f9" },
+];
+
 export default function PromptNotepad() {
   const [theme, setTheme] = useState(() => localStorage.getItem("pn-theme") || "dark");
-  const C = getC(theme);
-  const toggleTheme = () => setTheme(t => { const n = t === "dark" ? "light" : "dark"; localStorage.setItem("pn-theme", n); return n; });
+  const C = getCachedC(theme);
+  const toggleTheme = useCallback(() => setTheme(t => { const n = t === "dark" ? "light" : "dark"; localStorage.setItem("pn-theme", n); return n; }), []);
 
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -177,16 +269,34 @@ export default function PromptNotepad() {
   const [fetchError, setFetchError] = useState(null);
   const [carousel, setCarousel] = useState(null); // {images:[], index:0}
   const [mobOpen, setMobOpen] = useState(false);
+
+  // Separate local text state for instant typing response
+  const [localText, setLocalText] = useState("");
+  const [localTitle, setLocalTitle] = useState("");
+
   const saveTimer = useRef(null);
   const editorRef = useRef(null);
   const backdropRef = useRef(null);
   const fileInputRef = useRef(null);
-  const activeNote = notes.find(n => n.id === activeId) || null;
+  const toastTimer = useRef(null);
 
-  const openCarousel = (images, index) => setCarousel({ images, index });
-  const closeCarousel = () => setCarousel(null);
-  const carouselPrev = () => setCarousel(c => ({ ...c, index: (c.index - 1 + c.images.length) % c.images.length }));
-  const carouselNext = () => setCarousel(c => ({ ...c, index: (c.index + 1) % c.images.length }));
+  const activeNote = useMemo(() => notes.find(n => n.id === activeId) || null, [notes, activeId]);
+
+  // Sync local text/title when active note changes (from sidebar click, etc.)
+  useEffect(() => {
+    if (activeNote) {
+      setLocalText(activeNote.text);
+      setLocalTitle(activeNote.title);
+    } else {
+      setLocalText("");
+      setLocalTitle("");
+    }
+  }, [activeId]); // Only on activeId change, not on every note update
+
+  const openCarousel = useCallback((images, index) => setCarousel({ images, index }), []);
+  const closeCarousel = useCallback(() => setCarousel(null), []);
+  const carouselPrev = useCallback(() => setCarousel(c => ({ ...c, index: (c.index - 1 + c.images.length) % c.images.length })), []);
+  const carouselNext = useCallback(() => setCarousel(c => ({ ...c, index: (c.index + 1) % c.images.length })), []);
 
   useEffect(() => { document.body.style.background = C.bg; }, [C.bg]);
 
@@ -294,7 +404,11 @@ export default function PromptNotepad() {
     }, 0);
   }, [userId]);
 
-  const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
+  const showToast = useCallback((msg, type = 'success') => {
+    setToast({ msg, type });
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3000);
+  }, []);
 
   const debouncedSave = useCallback((note) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -309,9 +423,9 @@ export default function PromptNotepad() {
       if (error) { console.error("Save error:", error); showToast("Sync failed — check connection", "error"); }
       setSaving(false);
     }, 800);
-  }, [user]);
+  }, [user, showToast]);
 
-  const createNote = async () => {
+  const createNote = useCallback(async () => {
     const note = { id: generateId(), title: "Untitled Prompt", text: "", images: [], important: false, personal: false, client: false, createdAt: Date.now(), updatedAt: Date.now() };
     const { error } = await supabase.from("notes").insert({
       id: note.id, user_id: user.id, title: note.title, text: note.text, images: note.images,
@@ -323,9 +437,9 @@ export default function PromptNotepad() {
     setActiveId(note.id);
     setMobOpen(false);
     setTimeout(() => editorRef.current?.focus(), 50);
-  };
+  }, [user]);
 
-  const deleteNote = async (id) => {
+  const deleteNote = useCallback(async (id) => {
     const { error } = await supabase.from("notes").delete().eq("id", id);
     if (error) { console.error(error); return; }
     setNotes(prev => {
@@ -333,7 +447,7 @@ export default function PromptNotepad() {
       if (activeId === id) setActiveId(updated[0]?.id || null);
       return updated;
     });
-  };
+  }, [activeId]);
 
   const updateNote = useCallback((id, patch) => {
     setNotes(prev => prev.map(n => {
@@ -362,9 +476,9 @@ export default function PromptNotepad() {
       return merged;
     }));
     showToast("Image attached ✓", "success");
-  }, [debouncedSave]);
+  }, [debouncedSave, showToast]);
 
-  const handleFileInputWithToast = (e) => {
+  const handleFileInputWithToast = useCallback((e) => {
     const file = e.target.files[0];
     if (!file || !activeId) return;
     if (!file.type.startsWith("image/")) { showToast("Only image files allowed", "error"); return; }
@@ -373,16 +487,16 @@ export default function PromptNotepad() {
     reader.onerror = () => showToast("Failed to read image file", "error");
     reader.readAsDataURL(file);
     e.target.value = "";
-  };
+  }, [activeId, addImageToNote, showToast]);
 
-  const removeImage = (noteId, imgId) => {
+  const removeImage = useCallback((noteId, imgId) => {
     setNotes(prev => prev.map(n => {
       if (n.id !== noteId) return n;
       const merged = { ...n, images: n.images.filter(i => i.id !== imgId), updatedAt: Date.now() };
       debouncedSave(merged);
       return merged;
     }));
-  };
+  }, [debouncedSave]);
 
   const handlePaste = useCallback((e) => {
     if (!activeId) return;
@@ -402,7 +516,7 @@ export default function PromptNotepad() {
     const textarea = editorRef.current;
     if (!textarea) return;
     const pos = textarea.selectionStart;
-    const text = activeNote?.text || "";
+    const text = localText;
     const URL_RE = /https?:\/\/[^\s<>"']+/g;
     let match;
     while ((match = URL_RE.exec(text)) !== null) {
@@ -412,7 +526,7 @@ export default function PromptNotepad() {
         return;
       }
     }
-  }, [activeNote]);
+  }, [localText]);
 
   const syncBackdropScroll = useCallback((e) => {
     if (backdropRef.current) {
@@ -421,21 +535,19 @@ export default function PromptNotepad() {
     }
   }, []);
 
+  const copyText = useCallback(() => { if (!localText) return; navigator.clipboard.writeText(localText).then(() => showToast("Copied ✓", "success")).catch(() => showToast("Copy failed", "error")); }, [localText, showToast]);
 
-  const copyText = () => { if (!activeNote?.text) return; navigator.clipboard.writeText(activeNote.text).then(() => showToast("Copied ✓", "success")).catch(() => showToast("Copy failed", "error")); };
-
-  const downloadTxt = () => {
+  const downloadTxt = useCallback(() => {
     if (!activeNote) return;
-    const blob = new Blob([activeNote.text], { type: "text/plain;charset=utf-8" });
-    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `${activeNote.title.replace(/[^a-z0-9]/gi, "_")}.txt` });
+    const blob = new Blob([localText], { type: "text/plain;charset=utf-8" });
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `${localTitle.replace(/[^a-z0-9]/gi, "_")}.txt` });
     a.click(); URL.revokeObjectURL(a.href); showToast("Downloaded .txt ✓", "success");
-  };
+  }, [activeNote, localText, localTitle, showToast]);
 
-  const downloadDoc = () => {
+  const downloadDoc = useCallback(() => {
     if (!activeNote) return;
-    const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const lines = activeNote.text.split("\n")
-      .map(l => `<p style="font-family:Calibri,sans-serif;font-size:12pt;margin:0 0 6pt">${esc(l) || "&nbsp;"}</p>`)
+    const lines = localText.split("\n")
+      .map(l => `<p style="font-family:Calibri,sans-serif;font-size:12pt;margin:0 0 6pt">${escapeHtml(l) || "&nbsp;"}</p>`)
       .join("");
     const imgs = (activeNote.images || []).map((img, i) =>
       `<p style="margin:12pt 0 4pt;font-family:Calibri;font-size:9pt;color:#888">Image ${i + 1}</p>` +
@@ -461,35 +573,50 @@ export default function PromptNotepad() {
 </style>
 </head>
 <body>
-<h1 style="font-family:Calibri;font-size:16pt;margin:0 0 14pt;color:#111">${esc(activeNote.title)}</h1>
+<h1 style="font-family:Calibri;font-size:16pt;margin:0 0 14pt;color:#111">${escapeHtml(localTitle)}</h1>
 ${lines}
 ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-weight:bold;color:#444;border-top:1pt solid #ddd;padding-top:10pt">Attached Images</p>${imgs}` : ""}
 </body></html>`;
     const blob = new Blob(["\ufeff", html], { type: "application/msword" });
-    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `${activeNote.title.replace(/[^a-z0-9]/gi, "_")}.doc` });
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `${localTitle.replace(/[^a-z0-9]/gi, "_")}.doc` });
     a.click(); URL.revokeObjectURL(a.href); showToast("Downloaded .doc ✓", "success");
-  };
+  }, [activeNote, localText, localTitle, showToast]);
 
-  const signOut = async () => { await supabase.auth.signOut(); setNotes([]); setActiveId(null); setLoaded(false); };
+  const signOut = useCallback(async () => { await supabase.auth.signOut(); setNotes([]); setActiveId(null); setLoaded(false); }, []);
 
-  const filteredNotes = filterTag ? notes.filter(n => n[filterTag]) : notes;
+  const filteredNotes = useMemo(() => filterTag ? notes.filter(n => n[filterTag]) : notes, [notes, filterTag]);
 
-  // Storage usage calculation
+  // Storage usage calculation — memoized to avoid recomputing on every render
   const STORAGE_LIMIT = 500 * 1024 * 1024; // 500 MB
-  const storageUsed = notes.reduce((acc, n) => {
-    let size = estimateBytes(n.title) + estimateBytes(n.text);
-    (n.images || []).forEach(img => { size += estimateBytes(img.dataUrl || ""); });
-    return acc + size;
-  }, 0);
+  const storageUsed = useMemo(() => {
+    return notes.reduce((acc, n) => {
+      let size = estimateBytesFast(n.title) + estimateBytesFast(n.text);
+      (n.images || []).forEach(img => { size += estimateBytesFast(img.dataUrl || ""); });
+      return acc + size;
+    }, 0);
+  }, [notes]);
   const storagePercent = Math.min((storageUsed / STORAGE_LIMIT) * 100, 100);
   const storageColor = storagePercent > 90 ? C.danger : storagePercent > 70 ? "#f5a623" : C.accent;
 
-  const RAIL = [
-    { id: null, icon: "📋", label: "All" },
-    { id: "important", icon: "⭐", label: "Important" },
-    { id: "personal", icon: "👤", label: "Personal" },
-    { id: "client", icon: "💼", label: "Client" },
-  ];
+  // Stable callbacks for NoteRow
+  const handleNoteSelect = useCallback((id) => { setActiveId(id); setMobOpen(false); }, []);
+
+  // Handle text input — update local state instantly, debounce remote save
+  const handleTextChange = useCallback((e) => {
+    const text = e.target.value;
+    const firstLine = text.trim().split("\n")[0].slice(0, 50);
+    const newTitle = firstLine || "Untitled Prompt";
+    setLocalText(text);
+    setLocalTitle(newTitle);
+    updateNote(activeId, { text, title: newTitle });
+  }, [activeId, updateNote]);
+
+  // Handle title input
+  const handleTitleChange = useCallback((e) => {
+    const title = e.target.value;
+    setLocalTitle(title);
+    updateNote(activeId, { title });
+  }, [activeId, updateNote]);
 
   if (!authChecked) return (
     <div style={{ background: C.bg, height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: mono, color: C.muted, gap: 10 }}>
@@ -516,7 +643,7 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
     </div>
   );
 
-  const toolBtnStyle = { background: "transparent", border: `1px solid ${C.border}`, color: C.dim, fontFamily: mono, fontSize: 12, padding: "5px 11px", borderRadius: 4, cursor: "pointer", transition: "border-color 0.15s, color 0.15s" };
+  const toolBtnStyle = { background: "transparent", border: `1px solid ${C.border}`, color: C.dim, fontFamily: mono, fontSize: 12, padding: "5px 11px", borderRadius: 4, cursor: "pointer" };
 
   const toastBg = toast?.type === 'error' ? '#c0392b' : toast?.type === 'warn' ? '#e67e22' : C.accent;
   const toastFg = toast?.type === 'error' || toast?.type === 'warn' ? '#fff' : C.accentFg;
@@ -589,53 +716,17 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
 
           <div className="sidebar-list">
             {filteredNotes.length === 0 && <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: "32px 14px", lineHeight: 1.8 }}>{filterTag ? `No ${filterTag} prompts.` : "No prompts yet."}<br />{filterTag ? "" : "Hit + to start."}</div>}
-            {filteredNotes.map(n => {
-              const isActive = n.id === activeId;
-              return (
-                <div key={n.id}
-                  className="note-row"
-                  onClick={() => { setActiveId(n.id); setMobOpen(false); }}
-                  style={{ padding: "11px 14px 8px", cursor: "pointer", position: "relative", borderLeft: `2px solid ${isActive ? C.accent : "transparent"}`, background: isActive ? C.surface2 : "transparent" }}>
-                  {/* Title row */}
-                  <div style={{ color: C.text, fontSize: 13, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingRight: 12 }}>{n.title}</div>
-                  {/* Tag badges */}
-                  {(n.important || n.personal || n.client) && (
-                    <div style={{ display: "flex", gap: 4, marginBottom: 4, flexWrap: "wrap" }}>
-                      {n.important && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#f5a62322", color: "#f5a623", border: "1px solid #f5a62344" }}>⭐ important</span>}
-                      {n.personal && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#22d3ee30", color: "#22d3ee", border: "1px solid #22d3ee55" }}>👤 personal</span>}
-                      {n.client && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#e879f930", color: "#e879f9", border: "1px solid #e879f955" }}>💼 client</span>}
-                    </div>
-                  )}
-                  <div style={{ color: C.bright, fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{timeAgo(n.updatedAt)}</div>
-                  <div style={{ color: C.dim, fontSize: 11 }}>
-                    {formatDateTime(n.updatedAt)}
-                    {n.images?.length > 0 && <span style={{ marginLeft: 6 }}>🖼 {n.images.length}</span>}
-                  </div>
-                  {/* Delete button */}
-                  <button
-                    onClick={e => { e.stopPropagation(); deleteNote(n.id); }}
-                    title="Delete prompt"
-                    className="note-delete-btn"
-                    style={{ position: "absolute", top: 10, right: 4, background: "#ff444422", border: "1px solid #ff444455", color: "#ff6666", width: 20, height: 20, borderRadius: "50%", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, fontWeight: 700, transition: "background 0.15s, color 0.15s, border-color 0.15s" }}
-                  >×</button>
-                  {/* Hover tag strip */}
-                  <div className="tag-bar" style={{ display: "flex", gap: 4, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>
-                    {[{ tag: "important", icon: "⭐", col: "#f5a623" }, { tag: "personal", icon: "👤", col: "#22d3ee" }, { tag: "client", icon: "💼", col: "#e879f9" }].map(({ tag, icon, col }) => (
-                      <button key={tag}
-                        onClick={e => { e.stopPropagation(); toggleTag(n.id, tag); }}
-                        title={`Mark as ${tag}`}
-                        style={{
-                          flex: 1, fontSize: 11, padding: "3px 0", borderRadius: 4, cursor: "pointer", fontFamily: mono,
-                          background: n[tag] ? col + "33" : "transparent",
-                          border: `1px solid ${n[tag] ? col : C.border}`,
-                          color: n[tag] ? col : C.dim,
-                          transition: "all 0.15s",
-                        }}>{icon}</button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+            {filteredNotes.map(n => (
+              <NoteRow
+                key={n.id}
+                note={n}
+                isActive={n.id === activeId}
+                C={C}
+                onSelect={handleNoteSelect}
+                onDelete={deleteNote}
+                onToggleTag={toggleTag}
+              />
+            ))}
           </div>
 
           <div className="sidebar-footer" style={{ borderTop: `1px solid ${C.border}`, padding: "10px 14px" }}>
@@ -650,7 +741,7 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
                 <span style={{ color: storageColor, fontSize: 10, fontWeight: 600 }}>{formatSize(storageUsed)} / 500 MB</span>
               </div>
               <div style={{ height: 4, background: C.surface2, borderRadius: 2, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${storagePercent}%`, background: storageColor, borderRadius: 2, transition: "width 0.3s ease, background 0.3s ease" }} />
+                <div className="storage-bar-fill" style={{ height: "100%", width: `${storagePercent}%`, background: storageColor, borderRadius: 2 }} />
               </div>
               {storagePercent > 90 && <div style={{ color: C.danger, fontSize: 9, marginTop: 3 }}>⚠ Storage almost full</div>}
             </div>
@@ -670,7 +761,7 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
           ) : (
             <>
               <div className="editor-toolbar" style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 18px", borderBottom: `1px solid ${C.border}`, background: C.surface, flexShrink: 0 }}>
-                <input value={activeNote.title} onChange={e => updateNote(activeNote.id, { title: e.target.value })} placeholder="Prompt title…"
+                <input value={localTitle} onChange={handleTitleChange} placeholder="Prompt title…"
                   style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: C.text, fontFamily: mono, fontSize: 15, fontWeight: 700, minWidth: 0 }} />
                 <div className="editor-tools" style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
                   <button onClick={copyText} className="tool-btn" style={toolBtnStyle}>Copy</button>
@@ -686,24 +777,9 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
               <div className="editor-body">
 
                 <div className="editor-text-wrap">
-                  <div
-                    ref={backdropRef}
-                    aria-hidden="true"
-                    className="editor-backdrop"
-                    style={{
-                      position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-                      padding: "22px", fontFamily: mono, fontSize: 15, lineHeight: 1.85,
-                      color: C.text, whiteSpace: "pre-wrap", wordBreak: "break-word",
-                      overflowY: "hidden", pointerEvents: "none", zIndex: 0,
-                    }}
-                    dangerouslySetInnerHTML={{ __html: highlightLinks(activeNote.text, C) }}
-                  />
-                  <textarea ref={editorRef} value={activeNote.text}
-                    onChange={e => {
-                      const text = e.target.value;
-                      const firstLine = text.trim().split("\n")[0].slice(0, 50);
-                      updateNote(activeNote.id, { text, title: firstLine || "Untitled Prompt" });
-                    }}
+                  <EditorBackdrop text={localText} C={C} backdropRef={backdropRef} />
+                  <textarea ref={editorRef} value={localText}
+                    onChange={handleTextChange}
                     onClick={handleLinkClick}
                     onScroll={syncBackdropScroll}
                     placeholder={"Write your prompt here…\n\nPaste image: Ctrl+V / Cmd+V\nOr click '+ Image' to attach from file"}
@@ -732,7 +808,7 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
 
                 <div style={{ padding: "8px 22px", borderTop: `1px solid ${C.border}`, color: C.muted, fontSize: 12, display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
                   <span>Ctrl+Click to open links · Ctrl+V paste image</span>
-                  <span>{activeNote.text.length} chars</span>
+                  <span>{localText.length} chars</span>
                 </div>
               </div>{/* end editor-body */}
             </>
