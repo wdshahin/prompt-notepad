@@ -191,6 +191,7 @@ const NoteRow = memo(function NoteRow({ note, isActive, C, onSelect, onDelete, o
       <div style={{ color: C.dim, fontSize: 11 }}>
         {formatDateTime(note.updatedAt)}
         {note.images?.length > 0 && <span style={{ marginLeft: 6 }}>🖼 {note.images.length}</span>}
+        {note.files?.length > 0 && <span style={{ marginLeft: 6 }}>📎 {note.files.length}</span>}
       </div>
       {/* Delete button */}
       <button
@@ -244,12 +245,6 @@ const RAIL = [
   { id: "client", icon: "💼", label: "Client" },
 ];
 
-const TAG_DEFS = [
-  { tag: "important", icon: "⭐", col: "#f5a623" },
-  { tag: "personal", icon: "👤", col: "#22d3ee" },
-  { tag: "client", icon: "💼", col: "#e879f9" },
-];
-
 export default function PromptNotepad() {
   const [theme, setTheme] = useState(() => localStorage.getItem("pn-theme") || "dark");
   const C = getCachedC(theme);
@@ -278,6 +273,7 @@ export default function PromptNotepad() {
   const editorRef = useRef(null);
   const backdropRef = useRef(null);
   const fileInputRef = useRef(null);
+  const docInputRef = useRef(null);
   const toastTimer = useRef(null);
 
   const activeNote = useMemo(() => notes.find(n => n.id === activeId) || null, [notes, activeId]);
@@ -351,15 +347,17 @@ export default function PromptNotepad() {
       const { data, error } = await supabase.from("notes").select("*").order("updated_at", { ascending: false });
       if (error) throw error;
       const mapped = (data || []).map(row => ({
-        id: row.id, title: row.title, text: row.text, images: row.images || [],
+        id: row.id, title: row.title, text: row.text,
+        images: row.images || [],
+        files: row.files || [],
         important: row.important || false, personal: row.personal || false, client: row.client || false,
         createdAt: new Date(row.created_at).getTime(),
         updatedAt: new Date(row.updated_at).getTime(),
       }));
       setNotes(mapped);
-      
+
       const urlHash = window.location.hash.slice(1);
-      
+
       const findNoteByHash = (hash, list) => {
         if (!hash) return null;
         const decoded = decodeURIComponent(hash);
@@ -380,7 +378,7 @@ export default function PromptNotepad() {
       } else if (mapped.length > 0) {
         setActiveId(mapped[0].id);
       }
-      
+
       setFetchError(null);
     } catch (e) {
       console.error(e);
@@ -417,6 +415,7 @@ export default function PromptNotepad() {
       const { error } = await supabase.from("notes").upsert({
         id: note.id, user_id: user.id, title: note.title, text: note.text,
         images: note.images,
+        files: note.files || [],
         important: note.important || false, personal: note.personal || false, client: note.client || false,
         updated_at: new Date().toISOString(),
       });
@@ -426,9 +425,9 @@ export default function PromptNotepad() {
   }, [user, showToast]);
 
   const createNote = useCallback(async () => {
-    const note = { id: generateId(), title: "Untitled Prompt", text: "", images: [], important: false, personal: false, client: false, createdAt: Date.now(), updatedAt: Date.now() };
+    const note = { id: generateId(), title: "Untitled Prompt", text: "", images: [], files: [], important: false, personal: false, client: false, createdAt: Date.now(), updatedAt: Date.now() };
     const { error } = await supabase.from("notes").insert({
-      id: note.id, user_id: user.id, title: note.title, text: note.text, images: note.images,
+      id: note.id, user_id: user.id, title: note.title, text: note.text, images: note.images, files: note.files,
       important: false, personal: false, client: false,
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     });
@@ -477,6 +476,60 @@ export default function PromptNotepad() {
     }));
     showToast("Image attached ✓", "success");
   }, [debouncedSave, showToast]);
+
+  const addFileToNote = useCallback((id, fileObj) => {
+    setNotes(prev => prev.map(n => {
+      if (n.id !== id) return n;
+      const merged = { ...n, files: [...(n.files || []), fileObj], updatedAt: Date.now() };
+      debouncedSave(merged);
+      return merged;
+    }));
+  }, [debouncedSave]);
+
+  const removeFile = useCallback((noteId, fileId) => {
+    setNotes(prev => prev.map(n => {
+      if (n.id !== noteId) return n;
+      const merged = { ...n, files: n.files.filter(f => f.id !== fileId), updatedAt: Date.now() };
+      debouncedSave(merged);
+      return merged;
+    }));
+  }, [debouncedSave]);
+
+  const MAX_DOC_SIZE = 5 * 1024 * 1024; // 5 MB
+
+  const handleDocFileUpload = useCallback((e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file || !activeId) return;
+
+    if (file.size > MAX_DOC_SIZE) {
+      showToast("File too large — max 5 MB", "error");
+      return;
+    }
+
+    const name = file.name;
+    const ext = name.split(".").pop().toLowerCase();
+    const allowed = ["md", "csv", "pdf"];
+    if (!allowed.includes(ext)) {
+      showToast("Unsupported type — use .md, .csv or .pdf", "error");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const fileObj = {
+        id: generateId(),
+        name,
+        type: ext,
+        size: file.size,
+        dataUrl: ev.target.result,
+      };
+      addFileToNote(activeId, fileObj);
+      showToast(`${name} attached ✓`, "success");
+    };
+    reader.onerror = () => showToast(`Failed to read ${name}`, "error");
+    reader.readAsDataURL(file);
+  }, [activeId, addFileToNote, showToast]);
 
   const handleFileInputWithToast = useCallback((e) => {
     const file = e.target.files[0];
@@ -592,6 +645,7 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
     return notes.reduce((acc, n) => {
       let size = estimateBytesFast(n.title) + estimateBytesFast(n.text);
       (n.images || []).forEach(img => { size += estimateBytesFast(img.dataUrl || ""); });
+      (n.files || []).forEach(f => { size += f.size || 0; });
       return acc + size;
     }, 0);
   }, [notes]);
@@ -768,6 +822,7 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
                   <button onClick={downloadTxt} className="tool-btn" style={toolBtnStyle}>↓ .txt</button>
                   <button onClick={downloadDoc} className="tool-btn" style={toolBtnStyle}>↓ .doc</button>
                   <button onClick={() => fileInputRef.current?.click()} className="tool-btn" style={toolBtnStyle}>+ Image</button>
+                  <button onClick={() => docInputRef.current?.click()} className="tool-btn" style={toolBtnStyle}>+ File</button>
                   <button onClick={toggleTheme} title={theme === "dark" ? "Light mode" : "Dark mode"}
                     style={{ ...toolBtnStyle, fontSize: 15, padding: "4px 9px" }}>
                     {theme === "dark" ? "☀" : "☾"}
@@ -806,8 +861,40 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
                   </div>
                 )}
 
+                {/* File Attachments */}
+                {activeNote.files?.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 22px 14px" }}>
+                    <div style={{ color: C.dim, fontSize: 11, marginBottom: 2, letterSpacing: "0.05em", textTransform: "uppercase" }}>Attachments</div>
+                    {activeNote.files.map(f => {
+                      const iconMap = { pdf: "📄", md: "📝", csv: "📊" };
+                      const icon = iconMap[f.type] || "📎";
+                      return (
+                        <div key={f.id} style={{
+                          display: "flex", alignItems: "center", gap: 10,
+                          background: C.surface, border: `1px solid ${C.border}`,
+                          borderRadius: 6, padding: "8px 12px",
+                        }}>
+                          <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ color: C.text, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
+                            <div style={{ color: C.dim, fontSize: 11 }}>{formatSize(f.size)}</div>
+                          </div>
+                          <a href={f.dataUrl} download={f.name}
+                            style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.dim, borderRadius: 4, padding: "4px 10px", fontSize: 11, fontFamily: mono, textDecoration: "none", cursor: "pointer", flexShrink: 0 }}
+                            title={`Download ${f.name}`}
+                          >↓ Download</a>
+                          <button onClick={() => removeFile(activeNote.id, f.id)}
+                            style={{ background: "#ff444422", border: "1px solid #ff444455", color: "#ff6666", width: 22, height: 22, borderRadius: "50%", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                            title="Remove attachment"
+                          >×</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
                 <div style={{ padding: "8px 22px", borderTop: `1px solid ${C.border}`, color: C.muted, fontSize: 12, display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
-                  <span>Ctrl+Click to open links · Ctrl+V paste image</span>
+                  <span>Ctrl+Click links · Ctrl+V paste image · + File attaches .md/.csv/.pdf</span>
                   <span>{localText.length} chars</span>
                 </div>
               </div>{/* end editor-body */}
@@ -817,6 +904,7 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
       </div>
 
       <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileInputWithToast} />
+      <input ref={docInputRef} type="file" accept=".md,.csv,.pdf" style={{ display: "none" }} onChange={handleDocFileUpload} />
     </div>
   );
 }
