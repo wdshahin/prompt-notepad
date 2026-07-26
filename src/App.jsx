@@ -419,7 +419,10 @@ export default function PromptNotepad() {
         important: note.important || false, personal: note.personal || false, client: note.client || false,
         updated_at: new Date().toISOString(),
       });
-      if (error) { console.error("Save error:", error); showToast("Sync failed — check connection", "error"); }
+      if (error) {
+        console.error("Save error:", error);
+        showToast(error.message ? `Sync failed: ${error.message}` : "Sync failed — check connection", "error");
+      }
       setSaving(false);
     }, 800);
   }, [user, showToast]);

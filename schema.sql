@@ -27,10 +27,12 @@ create policy "Users manage own notes"
 
 -- ============================================================
 -- MIGRATION: Run this if the table already exists without
---            the tag columns (important / personal / client)
+--            the tag columns or files column
 -- ============================================================
 
 alter table notes
   add column if not exists important boolean not null default false,
   add column if not exists personal  boolean not null default false,
-  add column if not exists client    boolean not null default false;
+  add column if not exists client    boolean not null default false,
+  add column if not exists files     jsonb   not null default '[]';
+
