@@ -38,3 +38,32 @@ alter table notes
   add column if not exists client    boolean not null default false,
   add column if not exists files     jsonb   not null default '[]',
   add column if not exists deleted   boolean not null default false;
+
+-- ============================================================
+-- PUBLIC SHARING: run this in the Supabase SQL Editor
+-- ============================================================
+-- share_id is a random, unguessable token. NULL = not shared.
+alter table notes
+  add column if not exists share_id text;
+
+create unique index if not exists notes_share_id_key
+  on notes (share_id) where share_id is not null;
+
+-- Anonymous visitors can NOT read the notes table directly (RLS still applies).
+-- They can only call this function with a valid token, and it returns just the
+-- fields needed for the public page. Trashed notes are never returned.
+create or replace function get_shared_note(p_share_id text)
+returns table (title text, text text, images jsonb, updated_at timestamptz)
+language sql
+security definer
+set search_path = public
+as $$
+  select n.title, n.text, n.images, n.updated_at
+  from notes n
+  where n.share_id = p_share_id
+    and n.deleted = false
+  limit 1;
+$$;
+
+revoke all on function get_shared_note(text) from public;
+grant execute on function get_shared_note(text) to anon, authenticated;

@@ -158,6 +158,276 @@ const IconClose = memo(function IconClose({ size = 12, color = "currentColor" })
   );
 });
 
+const IconShare = memo(function IconShare({ size = 12, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+    </svg>
+  );
+});
+
+// ─── Public sharing helpers ────────────────────────────────────
+// 128-bit random token from the browser CSPRNG — unguessable, so the link
+// itself is the secret. Sharing is off until the owner creates a link.
+function generateShareToken() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function buildShareUrl(token) {
+  return `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(token)}`;
+}
+
+function getShareTokenFromUrl() {
+  const t = new URLSearchParams(window.location.search).get("share");
+  return t && /^[A-Za-z0-9_-]{8,128}$/.test(t) ? t : null;
+}
+
+// Renders plain text with clickable http(s) links, without using innerHTML.
+function Linkified({ text, C }) {
+  const parts = [];
+  const URL_RE = /https?:\/\/[^\s<>"']+/g;
+  let last = 0;
+  let m;
+  let i = 0;
+  while ((m = URL_RE.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    parts.push(
+      <a key={i++} href={m[0]} target="_blank" rel="noopener noreferrer nofollow"
+        style={{ color: C.accent, textDecoration: "underline", textUnderlineOffset: 3 }}>{m[0]}</a>
+    );
+    last = URL_RE.lastIndex;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <>{parts}</>;
+}
+
+function ShareModal({ note, C, onClose, onEnableShare, onDisableShare, showToast }) {
+  const [busy, setBusy] = useState(false);
+  const shareUrl = note.shareId ? buildShareUrl(note.shareId) : "";
+  const imageCount = note.images?.length || 0;
+
+  const create = async () => {
+    setBusy(true);
+    await onEnableShare(note.id);
+    setBusy(false);
+  };
+
+  const stop = async () => {
+    setBusy(true);
+    await onDisableShare(note.id);
+    setBusy(false);
+  };
+
+  const copy = () => {
+    navigator.clipboard.writeText(shareUrl)
+      .then(() => showToast("Link copied ✓", "success"))
+      .catch(() => showToast("Copy failed — select and copy the link manually", "error"));
+  };
+
+  const btn = { fontFamily: mono, fontSize: 12, fontWeight: 700, padding: "8px 14px", borderRadius: 5, cursor: busy ? "not-allowed" : "pointer", opacity: busy ? 0.7 : 1, display: "inline-flex", alignItems: "center", gap: 6 };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "22px 22px 20px", width: 460, maxWidth: "100%", fontFamily: mono, boxShadow: "0 12px 60px rgba(0,0,0,0.5)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.text, fontSize: 15, fontWeight: 700 }}>
+            <IconShare size={16} color={C.accent} /> Share this note
+          </div>
+          <button onClick={onClose} aria-label="Close"
+            style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 4, width: 26, height: 26, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <IconClose size={13} color={C.dim} />
+          </button>
+        </div>
+
+        {!note.shareId ? (
+          <>
+            <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.7, marginBottom: 16 }}>
+              Create a public, read-only link. Anyone who has the link can view the
+              note's text{imageCount > 0 ? ` and its ${imageCount} attached image${imageCount > 1 ? "s" : ""}` : ""} — no
+              login needed. Other attachments (.md/.csv/.pdf) are not shared.
+              You can turn the link off at any time.
+            </div>
+            <button onClick={create} disabled={busy}
+              style={{ ...btn, background: C.accent, color: C.accentFg, border: "none" }}>
+              <IconShare size={13} color={C.accentFg} /> {busy ? "Creating…" : "Create public link"}
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.7, marginBottom: 10 }}>
+              Anyone with this link can view this note (read-only). The shared page
+              always shows your latest saved text and images.
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+              <input
+                readOnly
+                value={shareUrl}
+                onFocus={e => e.target.select()}
+                style={{ flex: 1, minWidth: 0, background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 5, padding: "9px 11px", color: C.text, fontFamily: mono, fontSize: 12, outline: "none" }}
+              />
+              <button onClick={copy} style={{ ...btn, background: C.accent, color: C.accentFg, border: "none", padding: "8px 14px" }}>Copy</button>
+            </div>
+            <button onClick={stop} disabled={busy}
+              style={{ ...btn, background: "#ff444422", color: C.trash, border: "1px solid #ff444455" }}>
+              {busy ? "Working…" : "Stop sharing"}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Public read-only page for a shared note ───────────────────
+function SharedView({ token }) {
+  const [theme, setTheme] = useState(() => localStorage.getItem("pn-theme") || "dark");
+  const C = getCachedC(theme);
+  const toggleTheme = useCallback(() => setTheme(t => { const n = t === "dark" ? "light" : "dark"; localStorage.setItem("pn-theme", n); return n; }), []);
+  const [state, setState] = useState({ status: supabase ? "loading" : "error", note: null });
+  const [lightbox, setLightbox] = useState(null); // image index
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => { document.body.style.background = C.bg; }, [C.bg]);
+
+  // Keep shared pages out of search engines.
+  useEffect(() => {
+    const meta = document.createElement("meta");
+    meta.name = "robots";
+    meta.content = "noindex, nofollow";
+    document.head.appendChild(meta);
+    return () => { document.head.removeChild(meta); };
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) return;
+    let cancelled = false;
+    supabase.rpc("get_shared_note", { p_share_id: token }).then(({ data, error }) => {
+      if (cancelled) return;
+      const row = Array.isArray(data) ? data[0] : data;
+      if (error || !row) {
+        setState({ status: "notfound", note: null });
+      } else {
+        document.title = `${row.title || "Shared note"} · Prompt Notepad`;
+        setState({ status: "ok", note: row });
+      }
+    });
+    return () => { cancelled = true; };
+  }, [token]);
+
+  const note = state.note;
+  const images = note?.images || [];
+
+  useEffect(() => {
+    if (lightbox === null) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setLightbox(null);
+      if (e.key === "ArrowLeft") setLightbox(i => (i - 1 + images.length) % images.length);
+      if (e.key === "ArrowRight") setLightbox(i => (i + 1) % images.length);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox, images.length]);
+
+  const copyText = () => {
+    if (!note?.text) return;
+    navigator.clipboard.writeText(note.text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    });
+  };
+
+  const shell = { background: C.bg, minHeight: "100vh", fontFamily: mono, color: C.text };
+  const center = { ...shell, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 20, textAlign: "center" };
+
+  if (state.status === "loading") return (
+    <div style={{ ...center, color: C.muted, flexDirection: "row" }}>
+      <div style={{ width: 7, height: 7, borderRadius: "50%", background: C.accent }} />Loading shared note…
+    </div>
+  );
+
+  if (state.status !== "ok") return (
+    <div style={center}>
+      <div style={{ color: C.accent, fontSize: 18, fontWeight: 700, letterSpacing: "0.07em" }}>⌘ PROMPTS</div>
+      <div style={{ color: C.text, fontSize: 16, fontWeight: 700 }}>This link isn't available</div>
+      <div style={{ color: C.dim, fontSize: 13, maxWidth: 380, lineHeight: 1.7 }}>
+        The note may no longer be shared, may have been deleted, or the link is incorrect.
+      </div>
+    </div>
+  );
+
+  const toolBtn = { background: "transparent", border: `1px solid ${C.border}`, color: C.dim, fontFamily: mono, fontSize: 12, padding: "5px 11px", borderRadius: 4, cursor: "pointer" };
+
+  return (
+    <div style={shell}>
+      {lightbox !== null && images[lightbox] && (
+        <div className="carousel-backdrop" onClick={() => setLightbox(null)}>
+          <img src={images[lightbox].dataUrl} className="carousel-img" alt="" onClick={e => e.stopPropagation()} />
+          {images.length > 1 && (
+            <>
+              <button className="carousel-btn carousel-btn-prev" aria-label="Previous"
+                onClick={e => { e.stopPropagation(); setLightbox(i => (i - 1 + images.length) % images.length); }}>‹</button>
+              <button className="carousel-btn carousel-btn-next" aria-label="Next"
+                onClick={e => { e.stopPropagation(); setLightbox(i => (i + 1) % images.length); }}>›</button>
+              <div className="carousel-counter">{lightbox + 1} / {images.length}</div>
+            </>
+          )}
+          <button className="carousel-close" onClick={() => setLightbox(null)}>&times;</button>
+        </div>
+      )}
+
+      <div style={{ maxWidth: 820, margin: "0 auto", padding: "28px 20px 60px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22, gap: 10 }}>
+          <div style={{ color: C.accent, fontSize: 14, fontWeight: 700, letterSpacing: "0.07em" }}>⌘ PROMPTS · shared note</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={copyText} className="tool-btn" style={toolBtn}>{copied ? "Copied ✓" : "Copy text"}</button>
+            <button onClick={toggleTheme} className="tool-btn" title={theme === "dark" ? "Light mode" : "Dark mode"}
+              style={{ ...toolBtn, padding: "5px 8px", display: "inline-flex", alignItems: "center" }}>
+              {theme === "dark" ? <IconSun size={14} color={C.dim} /> : <IconMoon size={14} color={C.dim} />}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+          <div style={{ padding: "16px 22px", borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: C.text, wordBreak: "break-word" }}>{note.title || "Untitled Prompt"}</div>
+            <div style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>Last updated {formatDateTime(note.updated_at)}</div>
+          </div>
+
+          <div style={{ padding: 22, fontSize: 15, lineHeight: 1.85, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+            {note.text ? <Linkified text={note.text} C={C} /> : <span style={{ color: C.muted }}>(This note has no text.)</span>}
+          </div>
+
+          {images.length > 0 && (
+            <div style={{ padding: "0 22px 22px" }}>
+              <div style={{ color: C.dim, fontSize: 11, marginBottom: 8, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                Images ({images.length})
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                {images.map((img, idx) => (
+                  <div key={img.id || idx} style={{ border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden", lineHeight: 0 }}>
+                    <img src={img.dataUrl} alt="" onClick={() => setLightbox(idx)}
+                      style={{ maxWidth: "100%", width: "auto", maxHeight: 320, display: "block", objectFit: "contain", background: "#111", cursor: "zoom-in" }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
@@ -406,25 +676,38 @@ const NoteRow = memo(function NoteRow({
 
       {/* Hover tag strip (active notes only) */}
       {!isTrashMode && (
-        <div className="tag-bar" style={{ display: "flex", gap: 4, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>
+        <div className="tag-bar" style={{ display: "flex", gap: 5, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>
           {[
             { tag: "important", label: "important", col: C.star, Icon: IconStar },
             { tag: "personal", label: "personal", col: C.user, Icon: IconUser },
             { tag: "client", label: "client", col: C.client, Icon: IconBriefcase }
-          ].map(({ tag, col, Icon }) => (
-            <button key={tag}
-              onClick={e => { e.stopPropagation(); onToggleTag(note.id, tag); }}
-              title={`Mark as ${tag}`}
-              className="tag-toggle-btn"
-              style={{
-                flex: 1, padding: "4px 0", borderRadius: 4, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                background: note[tag] ? `${col}33` : "transparent",
-                border: `1px solid ${note[tag] ? col : C.border}`,
-              }}>
-              <Icon size={12} color={note[tag] ? col : C.dim} filled={note[tag] && tag === "important"} />
-            </button>
-          ))}
+          ].map(({ tag, col, Icon }) => {
+            const isTagged = !!note[tag];
+            return (
+              <button key={tag}
+                onClick={e => { e.stopPropagation(); onToggleTag(note.id, tag); }}
+                title={`Mark as ${tag}`}
+                className="tag-toggle-btn"
+                style={{
+                  flex: 1,
+                  height: 26,
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: isTagged ? `${col}22` : "transparent",
+                  border: `1px solid ${isTagged ? col : C.border}`,
+                  transition: "all 0.15s ease",
+                }}>
+                <Icon
+                  size={14}
+                  color={isTagged ? col : `${col}cc`}
+                  filled={isTagged && tag === "important"}
+                />
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -467,6 +750,8 @@ function EditorArea({
   toolBtnStyle,
   removeImage,
   removeFile,
+  onEnableShare,
+  onDisableShare,
 }) {
   const [localText, setLocalText] = useState(note.text || "");
   const [localTitle, setLocalTitle] = useState(note.title || "");
@@ -590,6 +875,7 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
   }, [localText, localTitle, note.images, showToast]);
 
   const isTrashed = !!note.deleted;
+  const [showShare, setShowShare] = useState(false);
 
   return (
     <>
@@ -644,6 +930,17 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
               <button onClick={() => docInputRef.current?.click()} className="tool-btn" style={{ ...toolBtnStyle, display: "inline-flex", alignItems: "center", gap: 4 }}>
                 <IconPaperclip size={12} color={C.dim} /> File
               </button>
+              <button
+                onClick={() => setShowShare(true)}
+                className="tool-btn"
+                title={note.shareId ? "This note has a public link" : "Create a public share link"}
+                style={{
+                  ...toolBtnStyle,
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                  ...(note.shareId ? { borderColor: C.accent, color: C.accent } : {}),
+                }}>
+                <IconShare size={12} color={note.shareId ? C.accent : C.dim} /> Share
+              </button>
             </>
           )}
           <button onClick={toggleTheme} title={theme === "dark" ? "Light mode" : "Dark mode"}
@@ -652,6 +949,17 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
           </button>
         </div>
       </div>
+
+      {showShare && (
+        <ShareModal
+          note={note}
+          C={C}
+          onClose={() => setShowShare(false)}
+          onEnableShare={onEnableShare}
+          onDisableShare={onDisableShare}
+          showToast={showToast}
+        />
+      )}
 
       <div className="editor-body">
         <div className="editor-text-wrap">
@@ -749,7 +1057,7 @@ const RAIL = [
   { id: "trash", label: "Trash", Icon: IconTrash, colorKey: "trash" },
 ];
 
-export default function PromptNotepad() {
+function PromptNotepad() {
   const [theme, setTheme] = useState(() => localStorage.getItem("pn-theme") || "dark");
   const C = getCachedC(theme);
   const toggleTheme = useCallback(() => setTheme(t => { const n = t === "dark" ? "light" : "dark"; localStorage.setItem("pn-theme", n); return n; }), []);
@@ -863,6 +1171,7 @@ export default function PromptNotepad() {
         files: row.files || [],
         important: row.important || false, personal: row.personal || false, client: row.client || false,
         deleted: row.deleted || false,
+        shareId: row.share_id || null,
         createdAt: new Date(row.created_at).getTime(),
         updatedAt: new Date(row.updated_at).getTime(),
       }));
@@ -1192,6 +1501,46 @@ export default function PromptNotepad() {
   const storagePercent = Math.min((storageUsed / STORAGE_LIMIT) * 100, 100);
   const storageColor = storagePercent > 90 ? C.danger : storagePercent > 70 ? C.star : C.accent;
 
+  // ── Public sharing ───────────────────────────────────────────
+  // Flush any pending edit for this note first so the shared copy is current.
+  const enableShare = useCallback(async (id) => {
+    if (!supabase) return null;
+    const pending = pendingNotesRef.current[id];
+    if (pending) {
+      delete pendingNotesRef.current[id];
+      await saveImmediately(pending);
+    }
+    const existing = notes.find(n => n.id === id);
+    if (existing?.shareId) return existing.shareId;
+    const token = generateShareToken();
+    const { error } = await supabase.from("notes").update({ share_id: token }).eq("id", id);
+    if (error) {
+      console.error("Share error:", error);
+      showToast(
+        error.message && error.message.includes("share_id")
+          ? "Run the latest SQL migration in Supabase (share_id column) to enable sharing"
+          : (error.message || "Failed to create share link"),
+        "error"
+      );
+      return null;
+    }
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, shareId: token } : n));
+    return token;
+  }, [notes, saveImmediately, showToast]);
+
+  const disableShare = useCallback(async (id) => {
+    if (!supabase) return false;
+    const { error } = await supabase.from("notes").update({ share_id: null }).eq("id", id);
+    if (error) {
+      console.error("Unshare error:", error);
+      showToast(error.message || "Failed to stop sharing", "error");
+      return false;
+    }
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, shareId: null } : n));
+    showToast("Public link disabled", "success");
+    return true;
+  }, [showToast]);
+
   const handleNoteSelect = useCallback((id) => {
     setActiveId(id);
     setMobOpen(false);
@@ -1463,6 +1812,8 @@ export default function PromptNotepad() {
               toolBtnStyle={toolBtnStyle}
               removeImage={removeImage}
               removeFile={removeFile}
+              onEnableShare={enableShare}
+              onDisableShare={disableShare}
             />
           )}
         </main>
@@ -1473,3 +1824,10 @@ export default function PromptNotepad() {
     </div>
   );
 }
+
+// Public share links (?share=TOKEN) render the read-only viewer and never touch auth or the notes list.
+export default function App() {
+  const shareToken = getShareTokenFromUrl();
+  return shareToken ? <SharedView token={shareToken} /> : <PromptNotepad />;
+}
+
