@@ -14,14 +14,22 @@ function getC(theme) {
   if (theme === "light") return {
     bg: "#f7f7f3", surface: "#eeeee9", surface2: "#e5e5e0",
     border: "#d4d4cc", accent: "#5a9e1e", accentFg: "#fff",
-    text: "#1c1c1c", muted: "#aaa", dim: "#777", bright: "#444",
+    text: "#1c1c1c", muted: "#888884", dim: "#5c5c58", bright: "#222222",
     danger: "#d94040",
+    star: "#d97706",
+    user: "#0284c7",
+    client: "#a21caf",
+    trash: "#dc2626",
   };
   return {
     bg: "#0f0f0f", surface: "#141414", surface2: "#1a1a1a",
     border: "#242424", accent: "#c8ff57", accentFg: "#000",
-    text: "#e0e0e0", muted: "#484848", dim: "#777", bright: "#bbb",
+    text: "#e0e0e0", muted: "#555555", dim: "#888888", bright: "#bbbbbb",
     danger: "#ff5555",
+    star: "#f5a623",
+    user: "#22d3ee",
+    client: "#e879f9",
+    trash: "#ff6666",
   };
 }
 
@@ -31,6 +39,124 @@ const COLORS_LIGHT = getC("light");
 function getCachedC(theme) {
   return theme === "light" ? COLORS_LIGHT : COLORS_DARK;
 }
+
+// ─── High-Contrast Vector SVG Icons ────────────────────────────
+const IconAll = memo(function IconAll({ size = 14, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <rect x="3" y="3" width="18" height="18" rx="3" ry="3" />
+      <line x1="8" y1="8" x2="16" y2="8" />
+      <line x1="8" y1="12" x2="16" y2="12" />
+      <line x1="8" y1="16" x2="13" y2="16" />
+    </svg>
+  );
+});
+
+const IconStar = memo(function IconStar({ size = 14, color = "currentColor", filled = false }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? color : "none"} stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+});
+
+const IconUser = memo(function IconUser({ size = 14, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+});
+
+const IconBriefcase = memo(function IconBriefcase({ size = 14, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+    </svg>
+  );
+});
+
+const IconTrash = memo(function IconTrash({ size = 14, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <line x1="10" y1="11" x2="10" y2="17" />
+      <line x1="14" y1="11" x2="14" y2="17" />
+    </svg>
+  );
+});
+
+const IconRestore = memo(function IconRestore({ size = 14, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <polyline points="1 4 1 10 7 10" />
+      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+    </svg>
+  );
+});
+
+const IconImage = memo(function IconImage({ size = 12, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <polyline points="21 15 16 10 5 21" />
+    </svg>
+  );
+});
+
+const IconPaperclip = memo(function IconPaperclip({ size = 12, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </svg>
+  );
+});
+
+const IconSun = memo(function IconSun({ size = 14, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <circle cx="12" cy="12" r="5" />
+      <line x1="12" y1="1" x2="12" y2="3" />
+      <line x1="12" y1="21" x2="12" y2="23" />
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+      <line x1="1" y1="12" x2="3" y2="12" />
+      <line x1="21" y1="12" x2="23" y2="12" />
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+    </svg>
+  );
+});
+
+const IconMoon = memo(function IconMoon({ size = 14, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  );
+});
+
+const IconPlus = memo(function IconPlus({ size = 16, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+});
+
+const IconClose = memo(function IconClose({ size = 12, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+});
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -147,8 +273,8 @@ function AuthScreen({ C, theme, toggleTheme }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
           <div style={{ color: C.accent, fontSize: 18, fontWeight: 700, letterSpacing: "0.07em" }}>⌘ PROMPTS</div>
           <button onClick={toggleTheme} title={theme === "dark" ? "Switch to light" : "Switch to dark"}
-            style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.dim, borderRadius: 4, width: 28, height: 28, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {theme === "dark" ? "☀" : "☾"}
+            style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.dim, borderRadius: 4, width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {theme === "dark" ? <IconSun size={14} color={C.dim} /> : <IconMoon size={14} color={C.dim} />}
           </button>
         </div>
         <div style={{ color: C.dim, fontSize: 12, marginBottom: 28 }}>{mode === "login" ? "Sign in to your notepad" : "Create a free account"}</div>
@@ -205,17 +331,37 @@ const NoteRow = memo(function NoteRow({
       {/* Tag badges */}
       {!isTrashMode && (note.important || note.personal || note.client) && (
         <div style={{ display: "flex", gap: 4, marginBottom: 4, flexWrap: "wrap" }}>
-          {note.important && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#f5a62322", color: "#f5a623", border: "1px solid #f5a62344" }}>⭐ important</span>}
-          {note.personal && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#22d3ee30", color: "#22d3ee", border: "1px solid #22d3ee55" }}>👤 personal</span>}
-          {note.client && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#e879f930", color: "#e879f9", border: "1px solid #e879f955" }}>💼 client</span>}
+          {note.important && (
+            <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: `${C.star}22`, color: C.star, border: `1px solid ${C.star}44`, display: "inline-flex", alignItems: "center", gap: 3, fontWeight: 600 }}>
+              <IconStar size={10} color={C.star} filled /> important
+            </span>
+          )}
+          {note.personal && (
+            <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: `${C.user}22`, color: C.user, border: `1px solid ${C.user}44`, display: "inline-flex", alignItems: "center", gap: 3, fontWeight: 600 }}>
+              <IconUser size={10} color={C.user} /> personal
+            </span>
+          )}
+          {note.client && (
+            <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: `${C.client}22`, color: C.client, border: `1px solid ${C.client}44`, display: "inline-flex", alignItems: "center", gap: 3, fontWeight: 600 }}>
+              <IconBriefcase size={10} color={C.client} /> client
+            </span>
+          )}
         </div>
       )}
 
       <div style={{ color: C.bright, fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{timeAgo(note.updatedAt)}</div>
-      <div style={{ color: C.dim, fontSize: 11 }}>
-        {formatDateTime(note.updatedAt)}
-        {note.images?.length > 0 && <span style={{ marginLeft: 6 }}>🖼 {note.images.length}</span>}
-        {note.files?.length > 0 && <span style={{ marginLeft: 6 }}>📎 {note.files.length}</span>}
+      <div style={{ color: C.dim, fontSize: 11, display: "flex", alignItems: "center", gap: 8 }}>
+        <span>{formatDateTime(note.updatedAt)}</span>
+        {note.images?.length > 0 && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: C.dim }}>
+            <IconImage size={11} color={C.dim} /> {note.images.length}
+          </span>
+        )}
+        {note.files?.length > 0 && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: C.dim }}>
+            <IconPaperclip size={11} color={C.dim} /> {note.files.length}
+          </span>
+        )}
       </div>
 
       {/* Action buttons */}
@@ -225,19 +371,23 @@ const NoteRow = memo(function NoteRow({
             onClick={e => { e.stopPropagation(); onRestore(note.id); }}
             title="Restore prompt"
             style={{
-              background: "#5a9e1e22", border: "1px solid #5a9e1e55", color: C.accent,
-              width: 20, height: 20, borderRadius: 4, fontSize: 11, cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700
-            }}>↺</button>
+              background: `${C.accent}22`, border: `1px solid ${C.accent}66`, color: C.accent,
+              width: 22, height: 22, borderRadius: 4, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center"
+            }}>
+            <IconRestore size={11} color={C.accent} />
+          </button>
           <button
             onClick={e => { e.stopPropagation(); onPermanentDelete(note.id); }}
             title="Delete permanently"
             className="note-delete-btn"
             style={{
-              background: "#ff444422", border: "1px solid #ff444455", color: "#ff6666",
-              width: 20, height: 20, borderRadius: 4, fontSize: 12, cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700
-            }}>×</button>
+              background: "#ff444422", border: "1px solid #ff444455", color: C.trash,
+              width: 22, height: 22, borderRadius: 4, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center"
+            }}>
+            <IconTrash size={11} color={C.trash} />
+          </button>
         </div>
       ) : (
         <button
@@ -246,26 +396,34 @@ const NoteRow = memo(function NoteRow({
           className="note-delete-btn"
           style={{
             position: "absolute", top: 10, right: 6,
-            background: "#ff444422", border: "1px solid #ff444455", color: "#ff6666",
-            width: 20, height: 20, borderRadius: "50%", fontSize: 13, cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, fontWeight: 700
-          }}>×</button>
+            background: "#ff444415", border: "1px solid #ff444440", color: C.trash,
+            width: 22, height: 22, borderRadius: "50%", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center"
+          }}>
+          <IconClose size={10} color={C.trash} />
+        </button>
       )}
 
       {/* Hover tag strip (active notes only) */}
       {!isTrashMode && (
         <div className="tag-bar" style={{ display: "flex", gap: 4, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>
-          {[{ tag: "important", icon: "⭐", col: "#f5a623" }, { tag: "personal", icon: "👤", col: "#22d3ee" }, { tag: "client", icon: "💼", col: "#e879f9" }].map(({ tag, icon, col }) => (
+          {[
+            { tag: "important", label: "important", col: C.star, Icon: IconStar },
+            { tag: "personal", label: "personal", col: C.user, Icon: IconUser },
+            { tag: "client", label: "client", col: C.client, Icon: IconBriefcase }
+          ].map(({ tag, col, Icon }) => (
             <button key={tag}
               onClick={e => { e.stopPropagation(); onToggleTag(note.id, tag); }}
               title={`Mark as ${tag}`}
               className="tag-toggle-btn"
               style={{
-                flex: 1, fontSize: 11, padding: "3px 0", borderRadius: 4, cursor: "pointer", fontFamily: mono,
-                background: note[tag] ? col + "33" : "transparent",
+                flex: 1, padding: "4px 0", borderRadius: 4, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                background: note[tag] ? `${col}33` : "transparent",
                 border: `1px solid ${note[tag] ? col : C.border}`,
-                color: note[tag] ? col : C.dim,
-              }}>{icon}</button>
+              }}>
+              <Icon size={12} color={note[tag] ? col : C.dim} filled={note[tag] && tag === "important"} />
+            </button>
           ))}
         </div>
       )}
@@ -437,8 +595,8 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
     <>
       {isTrashed && (
         <div style={{
-          background: "#f5a62318",
-          borderBottom: `1px solid #f5a62344`,
+          background: `${C.star}15`,
+          borderBottom: `1px solid ${C.star}44`,
           padding: "10px 18px",
           display: "flex",
           alignItems: "center",
@@ -447,20 +605,20 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
           flexShrink: 0,
           flexWrap: "wrap",
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#f5a623", fontSize: 13, fontWeight: 600 }}>
-            <span style={{ fontSize: 16 }}>🗑</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.star, fontSize: 13, fontWeight: 600 }}>
+            <IconTrash size={16} color={C.star} />
             <span>This prompt is in the Trash.</span>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button
               onClick={() => onRestore(note.id)}
-              style={{ background: C.accent, color: C.accentFg, border: "none", borderRadius: 4, padding: "5px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: mono }}>
-              ↺ Restore
+              style={{ background: C.accent, color: C.accentFg, border: "none", borderRadius: 4, padding: "5px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: mono, display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <IconRestore size={12} color={C.accentFg} /> Restore
             </button>
             <button
               onClick={() => onPermanentDelete(note.id)}
-              style={{ background: "#ff444422", border: "1px solid #ff444455", color: "#ff6666", borderRadius: 4, padding: "5px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: mono }}>
-              Delete Forever
+              style={{ background: "#ff444422", border: "1px solid #ff444455", color: C.trash, borderRadius: 4, padding: "5px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: mono, display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <IconTrash size={12} color={C.trash} /> Delete Forever
             </button>
           </div>
         </div>
@@ -480,13 +638,17 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
           <button onClick={downloadDoc} className="tool-btn" style={toolBtnStyle}>↓ .doc</button>
           {!isTrashed && (
             <>
-              <button onClick={() => fileInputRef.current?.click()} className="tool-btn" style={toolBtnStyle}>+ Image</button>
-              <button onClick={() => docInputRef.current?.click()} className="tool-btn" style={toolBtnStyle}>+ File</button>
+              <button onClick={() => fileInputRef.current?.click()} className="tool-btn" style={{ ...toolBtnStyle, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <IconImage size={12} color={C.dim} /> Image
+              </button>
+              <button onClick={() => docInputRef.current?.click()} className="tool-btn" style={{ ...toolBtnStyle, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <IconPaperclip size={12} color={C.dim} /> File
+              </button>
             </>
           )}
           <button onClick={toggleTheme} title={theme === "dark" ? "Light mode" : "Dark mode"}
-            style={{ ...toolBtnStyle, fontSize: 15, padding: "4px 9px" }}>
-            {theme === "dark" ? "☀" : "☾"}
+            style={{ ...toolBtnStyle, padding: "5px 8px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            {theme === "dark" ? <IconSun size={14} color={C.dim} /> : <IconMoon size={14} color={C.dim} />}
           </button>
         </div>
       </div>
@@ -500,7 +662,7 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
             onChange={handleTextChange}
             onClick={handleLinkClick}
             onScroll={syncBackdropScroll}
-            placeholder={isTrashed ? "This prompt is in trash." : "Write your prompt here…\n\nPaste image: Ctrl+V / Cmd+V\nOr click '+ Image' to attach from file"}
+            placeholder={isTrashed ? "This prompt is in trash." : "Write your prompt here…\n\nPaste image: Ctrl+V / Cmd+V\nOr click 'Image' to attach from file"}
             spellCheck={false}
             readOnly={isTrashed}
             style={{
@@ -527,8 +689,9 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
                 {!isTrashed && (
                   <button
                     onClick={() => removeImage(note.id, img.id)}
-                    style={{ position: "absolute", top: 5, right: 5, background: "rgba(0,0,0,0.75)", border: "none", color: "#fff", width: 22, height: 22, borderRadius: "50%", fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-                  >×</button>
+                    style={{ position: "absolute", top: 5, right: 5, background: "rgba(0,0,0,0.75)", border: "none", color: "#fff", width: 22, height: 22, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <IconClose size={12} color="#fff" />
+                  </button>
                 )}
               </div>
             ))}
@@ -539,15 +702,15 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
           <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 22px 14px" }}>
             <div style={{ color: C.dim, fontSize: 11, marginBottom: 2, letterSpacing: "0.05em", textTransform: "uppercase" }}>Attachments</div>
             {note.files.map(f => {
-              const iconMap = { pdf: "📄", md: "📝", csv: "📊" };
-              const icon = iconMap[f.type] || "📎";
               return (
                 <div key={f.id} style={{
                   display: "flex", alignItems: "center", gap: 10,
                   background: C.surface, border: `1px solid ${C.border}`,
                   borderRadius: 6, padding: "8px 12px",
                 }}>
-                  <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
+                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <IconPaperclip size={18} color={C.accent} />
+                  </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ color: C.text, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
                     <div style={{ color: C.dim, fontSize: 11 }}>{formatSize(f.size)}</div>
@@ -558,9 +721,10 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
                   >↓ Download</a>
                   {!isTrashed && (
                     <button onClick={() => removeFile(note.id, f.id)}
-                      style={{ background: "#ff444422", border: "1px solid #ff444455", color: "#ff6666", width: 22, height: 22, borderRadius: "50%", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
-                      title="Remove attachment"
-                    >×</button>
+                      style={{ background: "#ff444422", border: "1px solid #ff444455", color: C.trash, width: 22, height: 22, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                      title="Remove attachment">
+                      <IconClose size={11} color={C.trash} />
+                    </button>
                   )}
                 </div>
               );
@@ -569,7 +733,7 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
         )}
 
         <div style={{ padding: "8px 22px", borderTop: `1px solid ${C.border}`, color: C.muted, fontSize: 12, display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
-          <span>{isTrashed ? "Trash mode · Read-only" : "Ctrl+Click links · Ctrl+V paste image · + File attaches .md/.csv/.pdf"}</span>
+          <span>{isTrashed ? "Trash mode · Read-only" : "Ctrl+Click links · Ctrl+V paste image · File attaches .md/.csv/.pdf"}</span>
           <span>{localText.length} chars</span>
         </div>
       </div>
@@ -578,11 +742,11 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
 }
 
 const RAIL = [
-  { id: null, icon: "📋", label: "All" },
-  { id: "important", icon: "⭐", label: "Important" },
-  { id: "personal", icon: "👤", label: "Personal" },
-  { id: "client", icon: "💼", label: "Client" },
-  { id: "trash", icon: "🗑", label: "Trash" },
+  { id: null, label: "All", Icon: IconAll, colorKey: "accent" },
+  { id: "important", label: "Important", Icon: IconStar, colorKey: "star" },
+  { id: "personal", label: "Personal", Icon: IconUser, colorKey: "user" },
+  { id: "client", label: "Client", Icon: IconBriefcase, colorKey: "client" },
+  { id: "trash", label: "Trash", Icon: IconTrash, colorKey: "trash" },
 ];
 
 export default function PromptNotepad() {
@@ -1026,7 +1190,7 @@ export default function PromptNotepad() {
     }, 0);
   }, [notes]);
   const storagePercent = Math.min((storageUsed / STORAGE_LIMIT) * 100, 100);
-  const storageColor = storagePercent > 90 ? C.danger : storagePercent > 70 ? "#f5a623" : C.accent;
+  const storageColor = storagePercent > 90 ? C.danger : storagePercent > 70 ? C.star : C.accent;
 
   const handleNoteSelect = useCallback((id) => {
     setActiveId(id);
@@ -1113,10 +1277,19 @@ export default function PromptNotepad() {
           <button className="mob-hamburger" onClick={() => setMobOpen(o => !o)}>
             <span style={{ background: C.text }} /><span style={{ background: C.text }} /><span style={{ background: C.text }} />
           </button>
-          <span style={{ color: filterTag === "trash" ? "#f5a623" : C.accent, fontSize: 15, fontWeight: 700, letterSpacing: "0.07em" }}>
-            {filterTag === "trash" ? "🗑 TRASH" : "⌘ PROMPTS"}
-          </span>
-          <button onClick={toggleTheme} style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.dim, borderRadius: 4, width: 30, height: 30, cursor: "pointer", fontSize: 14 }}>{theme === "dark" ? "☀" : "☾"}</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            {filterTag === "trash" ? (
+              <IconTrash size={16} color={C.trash} />
+            ) : (
+              <span style={{ color: C.accent, fontSize: 16, fontWeight: 700 }}>⌘</span>
+            )}
+            <span style={{ color: filterTag === "trash" ? C.trash : C.accent, fontSize: 14, fontWeight: 700, letterSpacing: "0.07em" }}>
+              {filterTag === "trash" ? "TRASH" : "PROMPTS"}
+            </span>
+          </div>
+          <button onClick={toggleTheme} style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.dim, borderRadius: 4, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {theme === "dark" ? <IconSun size={14} color={C.dim} /> : <IconMoon size={14} color={C.dim} />}
+          </button>
         </div>
 
         {/* Sidebar */}
@@ -1126,20 +1299,31 @@ export default function PromptNotepad() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 14px 8px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button className="sidebar-close-btn" onClick={() => setMobOpen(false)}
-                  style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.dim, borderRadius: 4, width: 26, height: 26, cursor: "pointer", fontSize: 16, display: "none", alignItems: "center", justifyContent: "center" }}>
-                  &times;
+                  style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.dim, borderRadius: 4, width: 26, height: 26, cursor: "pointer", display: "none", alignItems: "center", justifyContent: "center" }}>
+                  <IconClose size={14} color={C.dim} />
                 </button>
-                <span style={{ color: filterTag === "trash" ? "#f5a623" : C.accent, fontSize: 15, fontWeight: 700, letterSpacing: "0.07em" }}>
-                  {filterTag === "trash" ? "🗑 TRASH" : "⌘ PROMPTS"}
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {filterTag === "trash" ? (
+                    <IconTrash size={16} color={C.trash} />
+                  ) : (
+                    <span style={{ color: C.accent, fontSize: 16, fontWeight: 700 }}>⌘</span>
+                  )}
+                  <span style={{ color: filterTag === "trash" ? C.trash : C.accent, fontSize: 14, fontWeight: 700, letterSpacing: "0.07em" }}>
+                    {filterTag === "trash" ? "TRASH" : "PROMPTS"}
+                  </span>
+                </div>
               </div>
-              <button onClick={createNote} title="New prompt" style={{ background: C.accent, color: "#000", border: "none", borderRadius: 4, width: 26, height: 26, fontSize: 20, cursor: "pointer", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+              <button onClick={createNote} title="New prompt" style={{ background: C.accent, color: C.accentFg, border: "none", borderRadius: 4, width: 26, height: 26, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <IconPlus size={16} color={C.accentFg} />
+              </button>
             </div>
-            {/* Row 2: filter buttons including Trash */}
+
+            {/* Row 2: filter buttons including Trash with high-contrast vector icons */}
             <div style={{ display: "flex", gap: 4, padding: "0 14px 10px" }}>
               {RAIL.map(r => {
                 const isSelected = filterTag === r.id;
                 const isTrash = r.id === "trash";
+                const itemColor = C[r.colorKey] || C.accent;
                 return (
                   <button
                     key={String(r.id)}
@@ -1158,21 +1342,28 @@ export default function PromptNotepad() {
                     title={isTrash ? `Trash (${trashedNotes.length})` : r.label}
                     style={{
                       flex: 1,
-                      background: isSelected ? (isTrash ? "#ff444422" : C.accent + "22") : "transparent",
-                      border: `1px solid ${isSelected ? (isTrash ? "#ff444466" : C.accent + "66") : C.border}`,
+                      background: isSelected ? `${itemColor}22` : "transparent",
+                      border: `1px solid ${isSelected ? itemColor : C.border}`,
                       borderRadius: 4,
-                      height: 26,
-                      fontSize: 13,
+                      height: 28,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                       cursor: "pointer",
                       position: "relative",
+                      transition: "border-color 0.15s, background-color 0.15s",
                     }}>
-                    {r.icon}
+                    <r.Icon
+                      size={14}
+                      color={isSelected ? itemColor : (r.id ? `${itemColor}cc` : C.dim)}
+                      filled={isSelected && r.id === "important"}
+                    />
                     {isTrash && trashedNotes.length > 0 && (
                       <span style={{
-                        position: "absolute", top: -2, right: -2,
-                        background: "#ff4444", color: "#fff",
+                        position: "absolute", top: -3, right: -3,
+                        background: C.trash, color: "#fff",
                         fontSize: 8, fontWeight: 700, borderRadius: "50%",
-                        width: 12, height: 12, display: "flex", alignItems: "center", justifyContent: "center"
+                        width: 13, height: 13, display: "flex", alignItems: "center", justifyContent: "center"
                       }}>
                         {trashedNotes.length > 9 ? "9+" : trashedNotes.length}
                       </span>
@@ -1189,7 +1380,7 @@ export default function PromptNotepad() {
                 <span style={{ fontSize: 11, color: C.dim }}>{trashedNotes.length} in trash</span>
                 <button
                   onClick={emptyTrash}
-                  style={{ background: "#ff444422", border: "1px solid #ff444455", color: "#ff6666", fontSize: 10, padding: "3px 8px", borderRadius: 4, cursor: "pointer", fontFamily: mono, fontWeight: 600 }}>
+                  style={{ background: "#ff444422", border: "1px solid #ff444455", color: C.trash, fontSize: 10, padding: "3px 8px", borderRadius: 4, cursor: "pointer", fontFamily: mono, fontWeight: 600 }}>
                   Empty Trash
                 </button>
               </div>
@@ -1219,7 +1410,7 @@ export default function PromptNotepad() {
 
           <div className="sidebar-footer" style={{ borderTop: `1px solid ${C.border}`, padding: "10px 14px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
-              <div style={{ width: 6, height: 6, borderRadius: "50%", background: saving ? "#f5a623" : C.accent, flexShrink: 0 }} />
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: saving ? C.star : C.accent, flexShrink: 0 }} />
               <span style={{ color: C.muted, fontSize: 11 }}>{saving ? "Saving…" : "Synced ✓"}</span>
             </div>
             {/* Storage usage bar */}
@@ -1242,7 +1433,9 @@ export default function PromptNotepad() {
         <main className="editor-main" style={{ background: C.bg }}>
           {!activeNote ? (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
-              <div style={{ fontSize: 52, opacity: 0.1 }}>{filterTag === "trash" ? "🗑" : "✎"}</div>
+              <div style={{ opacity: 0.2, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {filterTag === "trash" ? <IconTrash size={52} color={C.muted} /> : <IconAll size={52} color={C.muted} />}
+              </div>
               <div style={{ color: C.muted, fontSize: 15 }}>
                 {filterTag === "trash"
                   ? (trashedNotes.length === 0 ? "Trash is empty" : "Select a trashed prompt to view or restore")
