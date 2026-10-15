@@ -8,9 +8,11 @@ create table if not exists notes (
   title       text        not null default 'Untitled Prompt',
   text        text        not null default '',
   images      jsonb       not null default '[]',
+  files       jsonb       not null default '[]',
   important   boolean     not null default false,
   personal    boolean     not null default false,
   client      boolean     not null default false,
+  deleted     boolean     not null default false,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
@@ -27,12 +29,12 @@ create policy "Users manage own notes"
 
 -- ============================================================
 -- MIGRATION: Run this if the table already exists without
---            the tag columns or files column
+--            the tag columns, files column, or deleted column
 -- ============================================================
 
 alter table notes
   add column if not exists important boolean not null default false,
   add column if not exists personal  boolean not null default false,
   add column if not exists client    boolean not null default false,
-  add column if not exists files     jsonb   not null default '[]';
-
+  add column if not exists files     jsonb   not null default '[]',
+  add column if not exists deleted   boolean not null default false;

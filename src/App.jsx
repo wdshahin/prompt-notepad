@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
 
 const mono = "'JetBrains Mono','Fira Code','Cascadia Code',monospace";
+const MAX_DOC_SIZE = 5 * 1024 * 1024; // 5 MB
 
 function getC(theme) {
   if (theme === "light") return {
@@ -78,7 +80,7 @@ function formatSize(bytes) {
 }
 
 // Escape HTML chars
-const escapeHtml = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const escapeHtml = s => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 function highlightLinks(text, C) {
   const URL_RE = /https?:\/\/[^\s<>"']+/g;
@@ -103,6 +105,7 @@ function AuthScreen({ C, theme, toggleTheme }) {
   const [done, setDone] = useState(false);
 
   const submit = async () => {
+    if (!supabase) return;
     setError(""); setLoading(true);
     try {
       if (mode === "signup") {
@@ -171,50 +174,101 @@ function AuthScreen({ C, theme, toggleTheme }) {
 }
 
 // ─── Memoized sidebar note row ─────────────────────────────────
-const NoteRow = memo(function NoteRow({ note, isActive, C, onSelect, onDelete, onToggleTag }) {
+const NoteRow = memo(function NoteRow({
+  note,
+  isActive,
+  isTrashMode,
+  C,
+  onSelect,
+  onMoveToTrash,
+  onRestore,
+  onPermanentDelete,
+  onToggleTag
+}) {
   return (
     <div
       className="note-row"
       onClick={() => onSelect(note.id)}
-      style={{ padding: "11px 14px 8px", cursor: "pointer", position: "relative", borderLeft: `2px solid ${isActive ? C.accent : "transparent"}`, background: isActive ? C.surface2 : "transparent" }}>
+      style={{
+        padding: "11px 14px 8px",
+        cursor: "pointer",
+        position: "relative",
+        borderLeft: `2px solid ${isActive ? C.accent : "transparent"}`,
+        background: isActive ? C.surface2 : "transparent",
+        opacity: note.deleted && !isTrashMode ? 0.5 : 1,
+      }}>
       {/* Title row */}
-      <div style={{ color: C.text, fontSize: 13, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingRight: 12 }}>{note.title}</div>
+      <div style={{ color: C.text, fontSize: 13, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingRight: 42 }}>
+        {note.title || "Untitled Prompt"}
+      </div>
+
       {/* Tag badges */}
-      {(note.important || note.personal || note.client) && (
+      {!isTrashMode && (note.important || note.personal || note.client) && (
         <div style={{ display: "flex", gap: 4, marginBottom: 4, flexWrap: "wrap" }}>
           {note.important && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#f5a62322", color: "#f5a623", border: "1px solid #f5a62344" }}>⭐ important</span>}
           {note.personal && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#22d3ee30", color: "#22d3ee", border: "1px solid #22d3ee55" }}>👤 personal</span>}
           {note.client && <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "#e879f930", color: "#e879f9", border: "1px solid #e879f955" }}>💼 client</span>}
         </div>
       )}
+
       <div style={{ color: C.bright, fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{timeAgo(note.updatedAt)}</div>
       <div style={{ color: C.dim, fontSize: 11 }}>
         {formatDateTime(note.updatedAt)}
         {note.images?.length > 0 && <span style={{ marginLeft: 6 }}>🖼 {note.images.length}</span>}
         {note.files?.length > 0 && <span style={{ marginLeft: 6 }}>📎 {note.files.length}</span>}
       </div>
-      {/* Delete button */}
-      <button
-        onClick={e => { e.stopPropagation(); onDelete(note.id); }}
-        title="Delete prompt"
-        className="note-delete-btn"
-        style={{ position: "absolute", top: 10, right: 4, background: "#ff444422", border: "1px solid #ff444455", color: "#ff6666", width: 20, height: 20, borderRadius: "50%", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, fontWeight: 700 }}
-      >×</button>
-      {/* Hover tag strip */}
-      <div className="tag-bar" style={{ display: "flex", gap: 4, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>
-        {[{ tag: "important", icon: "⭐", col: "#f5a623" }, { tag: "personal", icon: "👤", col: "#22d3ee" }, { tag: "client", icon: "💼", col: "#e879f9" }].map(({ tag, icon, col }) => (
-          <button key={tag}
-            onClick={e => { e.stopPropagation(); onToggleTag(note.id, tag); }}
-            title={`Mark as ${tag}`}
-            className="tag-toggle-btn"
+
+      {/* Action buttons */}
+      {isTrashMode ? (
+        <div style={{ position: "absolute", top: 8, right: 6, display: "flex", gap: 4 }}>
+          <button
+            onClick={e => { e.stopPropagation(); onRestore(note.id); }}
+            title="Restore prompt"
             style={{
-              flex: 1, fontSize: 11, padding: "3px 0", borderRadius: 4, cursor: "pointer", fontFamily: mono,
-              background: note[tag] ? col + "33" : "transparent",
-              border: `1px solid ${note[tag] ? col : C.border}`,
-              color: note[tag] ? col : C.dim,
-            }}>{icon}</button>
-        ))}
-      </div>
+              background: "#5a9e1e22", border: "1px solid #5a9e1e55", color: C.accent,
+              width: 20, height: 20, borderRadius: 4, fontSize: 11, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700
+            }}>↺</button>
+          <button
+            onClick={e => { e.stopPropagation(); onPermanentDelete(note.id); }}
+            title="Delete permanently"
+            className="note-delete-btn"
+            style={{
+              background: "#ff444422", border: "1px solid #ff444455", color: "#ff6666",
+              width: 20, height: 20, borderRadius: 4, fontSize: 12, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700
+            }}>×</button>
+        </div>
+      ) : (
+        <button
+          onClick={e => { e.stopPropagation(); onMoveToTrash(note.id); }}
+          title="Move to trash"
+          className="note-delete-btn"
+          style={{
+            position: "absolute", top: 10, right: 6,
+            background: "#ff444422", border: "1px solid #ff444455", color: "#ff6666",
+            width: 20, height: 20, borderRadius: "50%", fontSize: 13, cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, fontWeight: 700
+          }}>×</button>
+      )}
+
+      {/* Hover tag strip (active notes only) */}
+      {!isTrashMode && (
+        <div className="tag-bar" style={{ display: "flex", gap: 4, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>
+          {[{ tag: "important", icon: "⭐", col: "#f5a623" }, { tag: "personal", icon: "👤", col: "#22d3ee" }, { tag: "client", icon: "💼", col: "#e879f9" }].map(({ tag, icon, col }) => (
+            <button key={tag}
+              onClick={e => { e.stopPropagation(); onToggleTag(note.id, tag); }}
+              title={`Mark as ${tag}`}
+              className="tag-toggle-btn"
+              style={{
+                flex: 1, fontSize: 11, padding: "3px 0", borderRadius: 4, cursor: "pointer", fontFamily: mono,
+                background: note[tag] ? col + "33" : "transparent",
+                border: `1px solid ${note[tag] ? col : C.border}`,
+                color: note[tag] ? col : C.dim,
+              }}>{icon}</button>
+          ))}
+        </div>
+      )}
     </div>
   );
 });
@@ -238,11 +292,297 @@ const EditorBackdrop = memo(function EditorBackdrop({ text, C, backdropRef }) {
   );
 });
 
+// ─── Editor Area Component (keyed per note ID) ──────────────────
+function EditorArea({
+  note,
+  C,
+  theme,
+  mono,
+  toggleTheme,
+  onUpdateNote,
+  onRestore,
+  onPermanentDelete,
+  openCarousel,
+  showToast,
+  fileInputRef,
+  docInputRef,
+  toolBtnStyle,
+  removeImage,
+  removeFile,
+}) {
+  const [localText, setLocalText] = useState(note.text || "");
+  const [localTitle, setLocalTitle] = useState(note.title || "");
+  
+  // Custom title detection: true if title is already custom (not default and not matching first line)
+  const [isCustomTitle, setIsCustomTitle] = useState(() => {
+    if (!note.title || note.title === "Untitled Prompt") return false;
+    const firstLine = (note.text || "").trim().split("\n")[0].slice(0, 50);
+    return note.title !== firstLine;
+  });
+
+  const editorRef = useRef(null);
+  const backdropRef = useRef(null);
+
+  useEffect(() => {
+    if (!note.text && editorRef.current) {
+      editorRef.current.focus();
+    }
+  }, [note.id, note.text]);
+
+  const handleTitleChange = useCallback((e) => {
+    const val = e.target.value;
+    setLocalTitle(val);
+    if (!val.trim()) {
+      setIsCustomTitle(false);
+      const firstLine = localText.trim().split("\n")[0].slice(0, 50);
+      onUpdateNote(note.id, { title: firstLine || "Untitled Prompt" });
+    } else {
+      setIsCustomTitle(true);
+      onUpdateNote(note.id, { title: val });
+    }
+  }, [localText, note.id, onUpdateNote]);
+
+  const handleTextChange = useCallback((e) => {
+    const text = e.target.value;
+    setLocalText(text);
+
+    if (!isCustomTitle) {
+      const firstLine = text.trim().split("\n")[0].slice(0, 50);
+      const newTitle = firstLine || "Untitled Prompt";
+      setLocalTitle(newTitle);
+      onUpdateNote(note.id, { text, title: newTitle });
+    } else {
+      // Locked custom title: do not overwrite title when user types in the body!
+      onUpdateNote(note.id, { text });
+    }
+  }, [isCustomTitle, note.id, onUpdateNote]);
+
+  const syncBackdropScroll = useCallback((e) => {
+    if (backdropRef.current) {
+      backdropRef.current.scrollTop = e.target.scrollTop;
+      backdropRef.current.scrollLeft = e.target.scrollLeft;
+    }
+  }, []);
+
+  const handleLinkClick = useCallback((e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const textarea = editorRef.current;
+    if (!textarea) return;
+    const pos = textarea.selectionStart;
+    const text = localText;
+    const URL_RE = /https?:\/\/[^\s<>"']+/g;
+    let match;
+    while ((match = URL_RE.exec(text)) !== null) {
+      if (pos >= match.index && pos <= match.index + match[0].length) {
+        e.preventDefault();
+        window.open(match[0], "_blank", "noopener,noreferrer");
+        return;
+      }
+    }
+  }, [localText]);
+
+  const copyText = useCallback(() => {
+    if (!localText) return;
+    navigator.clipboard.writeText(localText)
+      .then(() => showToast("Copied ✓", "success"))
+      .catch(() => showToast("Copy failed", "error"));
+  }, [localText, showToast]);
+
+  const downloadTxt = useCallback(() => {
+    const blob = new Blob([localText], { type: "text/plain;charset=utf-8" });
+    const a = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(blob),
+      download: `${(localTitle || "prompt").replace(/[^a-z0-9]/gi, "_")}.txt`
+    });
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast("Downloaded .txt ✓", "success");
+  }, [localText, localTitle, showToast]);
+
+  const downloadDoc = useCallback(() => {
+    const lines = localText.split("\n")
+      .map(l => `<p style="font-family:Calibri,sans-serif;font-size:12pt;margin:0 0 6pt">${escapeHtml(l) || "&nbsp;"}</p>`)
+      .join("");
+    const imgs = (note.images || []).map((img, i) =>
+      `<p style="margin:12pt 0 4pt;font-family:Calibri;font-size:9pt;color:#888">Image ${i + 1}</p>` +
+      `<p><img src="${img.dataUrl}" style="max-width:6.5in;width:100%;border:1pt solid #ddd"/></p>`
+    ).join("");
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
+<head><meta charset="utf-8"/>
+<style>
+  @page { size: 8.5in 11in; margin: 1in; mso-header-margin: .5in; mso-footer-margin: .5in; mso-paper-source: 0; }
+  body { font-family: Calibri, sans-serif; font-size: 12pt; margin: 1in; }
+  p { margin: 0 0 6pt; }
+  img { max-width: 100%; height: auto; }
+</style>
+</head>
+<body>
+<h1 style="font-family:Calibri;font-size:16pt;margin:0 0 14pt;color:#111">${escapeHtml(localTitle || "Untitled Prompt")}</h1>
+${lines}
+${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-weight:bold;color:#444;border-top:1pt solid #ddd;padding-top:10pt">Attached Images</p>${imgs}` : ""}
+</body></html>`;
+    const blob = new Blob(["\ufeff", html], { type: "application/msword" });
+    const a = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(blob),
+      download: `${(localTitle || "prompt").replace(/[^a-z0-9]/gi, "_")}.doc`
+    });
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast("Downloaded .doc ✓", "success");
+  }, [localText, localTitle, note.images, showToast]);
+
+  const isTrashed = !!note.deleted;
+
+  return (
+    <>
+      {isTrashed && (
+        <div style={{
+          background: "#f5a62318",
+          borderBottom: `1px solid #f5a62344`,
+          padding: "10px 18px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          flexShrink: 0,
+          flexWrap: "wrap",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#f5a623", fontSize: 13, fontWeight: 600 }}>
+            <span style={{ fontSize: 16 }}>🗑</span>
+            <span>This prompt is in the Trash.</span>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => onRestore(note.id)}
+              style={{ background: C.accent, color: C.accentFg, border: "none", borderRadius: 4, padding: "5px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: mono }}>
+              ↺ Restore
+            </button>
+            <button
+              onClick={() => onPermanentDelete(note.id)}
+              style={{ background: "#ff444422", border: "1px solid #ff444455", color: "#ff6666", borderRadius: 4, padding: "5px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: mono }}>
+              Delete Forever
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="editor-toolbar" style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 18px", borderBottom: `1px solid ${C.border}`, background: C.surface, flexShrink: 0 }}>
+        <input
+          value={localTitle}
+          onChange={handleTitleChange}
+          placeholder="Prompt title…"
+          disabled={isTrashed}
+          style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: C.text, fontFamily: mono, fontSize: 15, fontWeight: 700, minWidth: 0, opacity: isTrashed ? 0.6 : 1 }}
+        />
+        <div className="editor-tools" style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+          <button onClick={copyText} className="tool-btn" style={toolBtnStyle}>Copy</button>
+          <button onClick={downloadTxt} className="tool-btn" style={toolBtnStyle}>↓ .txt</button>
+          <button onClick={downloadDoc} className="tool-btn" style={toolBtnStyle}>↓ .doc</button>
+          {!isTrashed && (
+            <>
+              <button onClick={() => fileInputRef.current?.click()} className="tool-btn" style={toolBtnStyle}>+ Image</button>
+              <button onClick={() => docInputRef.current?.click()} className="tool-btn" style={toolBtnStyle}>+ File</button>
+            </>
+          )}
+          <button onClick={toggleTheme} title={theme === "dark" ? "Light mode" : "Dark mode"}
+            style={{ ...toolBtnStyle, fontSize: 15, padding: "4px 9px" }}>
+            {theme === "dark" ? "☀" : "☾"}
+          </button>
+        </div>
+      </div>
+
+      <div className="editor-body">
+        <div className="editor-text-wrap">
+          <EditorBackdrop text={localText} C={C} backdropRef={backdropRef} />
+          <textarea
+            ref={editorRef}
+            value={localText}
+            onChange={handleTextChange}
+            onClick={handleLinkClick}
+            onScroll={syncBackdropScroll}
+            placeholder={isTrashed ? "This prompt is in trash." : "Write your prompt here…\n\nPaste image: Ctrl+V / Cmd+V\nOr click '+ Image' to attach from file"}
+            spellCheck={false}
+            readOnly={isTrashed}
+            style={{
+              position: "relative", zIndex: 1,
+              width: "100%", height: "100%",
+              background: "transparent", border: "none", outline: "none", resize: "none",
+              color: "transparent", caretColor: isTrashed ? "transparent" : C.text,
+              fontFamily: mono, fontSize: 15, lineHeight: 1.85, padding: "22px",
+            }}
+          />
+        </div>
+
+        {note.images?.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: "0 22px 14px" }}>
+            {note.images.map((img, idx) => (
+              <div key={img.id} style={{ position: "relative", border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden", lineHeight: 0 }}>
+                <img
+                  src={img.dataUrl}
+                  onClick={() => openCarousel(note.images, idx)}
+                  className="img-thumb"
+                  style={{ maxWidth: 320, maxHeight: 240, display: "block", objectFit: "contain", background: "#111", cursor: "zoom-in" }}
+                  alt=""
+                />
+                {!isTrashed && (
+                  <button
+                    onClick={() => removeImage(note.id, img.id)}
+                    style={{ position: "absolute", top: 5, right: 5, background: "rgba(0,0,0,0.75)", border: "none", color: "#fff", width: 22, height: 22, borderRadius: "50%", fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                  >×</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {note.files?.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 22px 14px" }}>
+            <div style={{ color: C.dim, fontSize: 11, marginBottom: 2, letterSpacing: "0.05em", textTransform: "uppercase" }}>Attachments</div>
+            {note.files.map(f => {
+              const iconMap = { pdf: "📄", md: "📝", csv: "📊" };
+              const icon = iconMap[f.type] || "📎";
+              return (
+                <div key={f.id} style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  background: C.surface, border: `1px solid ${C.border}`,
+                  borderRadius: 6, padding: "8px 12px",
+                }}>
+                  <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: C.text, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
+                    <div style={{ color: C.dim, fontSize: 11 }}>{formatSize(f.size)}</div>
+                  </div>
+                  <a href={f.dataUrl} download={f.name}
+                    style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.dim, borderRadius: 4, padding: "4px 10px", fontSize: 11, fontFamily: mono, textDecoration: "none", cursor: "pointer", flexShrink: 0 }}
+                    title={`Download ${f.name}`}
+                  >↓ Download</a>
+                  {!isTrashed && (
+                    <button onClick={() => removeFile(note.id, f.id)}
+                      style={{ background: "#ff444422", border: "1px solid #ff444455", color: "#ff6666", width: 22, height: 22, borderRadius: "50%", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                      title="Remove attachment"
+                    >×</button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div style={{ padding: "8px 22px", borderTop: `1px solid ${C.border}`, color: C.muted, fontSize: 12, display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
+          <span>{isTrashed ? "Trash mode · Read-only" : "Ctrl+Click links · Ctrl+V paste image · + File attaches .md/.csv/.pdf"}</span>
+          <span>{localText.length} chars</span>
+        </div>
+      </div>
+    </>
+  );
+}
+
 const RAIL = [
   { id: null, icon: "📋", label: "All" },
   { id: "important", icon: "⭐", label: "Important" },
   { id: "personal", icon: "👤", label: "Personal" },
   { id: "client", icon: "💼", label: "Client" },
+  { id: "trash", icon: "🗑", label: "Trash" },
 ];
 
 export default function PromptNotepad() {
@@ -251,7 +591,7 @@ export default function PromptNotepad() {
   const toggleTheme = useCallback(() => setTheme(t => { const n = t === "dark" ? "light" : "dark"; localStorage.setItem("pn-theme", n); return n; }), []);
 
   const [user, setUser] = useState(null);
-  const [authChecked, setAuthChecked] = useState(false);
+  const [authChecked, setAuthChecked] = useState(!supabase);
   const [notes, setNotes] = useState([]);
   const [activeId, setActiveId] = useState(() => {
     const hash = window.location.hash;
@@ -265,42 +605,47 @@ export default function PromptNotepad() {
   const [carousel, setCarousel] = useState(null); // {images:[], index:0}
   const [mobOpen, setMobOpen] = useState(false);
 
-  // Separate local text state for instant typing response
-  const [localText, setLocalText] = useState("");
-  const [localTitle, setLocalTitle] = useState("");
-
   const saveTimer = useRef(null);
-  const editorRef = useRef(null);
-  const backdropRef = useRef(null);
+  const pendingNotesRef = useRef({});
   const fileInputRef = useRef(null);
   const docInputRef = useRef(null);
   const toastTimer = useRef(null);
 
   const activeNote = useMemo(() => notes.find(n => n.id === activeId) || null, [notes, activeId]);
 
-  // Sync local text/title when active note changes (from sidebar click, etc.)
-  useEffect(() => {
-    if (activeNote) {
-      setLocalText(activeNote.text);
-      setLocalTitle(activeNote.title);
-    } else {
-      setLocalText("");
-      setLocalTitle("");
-    }
-  }, [activeId]); // Only on activeId change, not on every note update
+  const trashedNotes = useMemo(() => notes.filter(n => n.deleted), [notes]);
+  const activeNotes = useMemo(() => notes.filter(n => !n.deleted), [notes]);
+
+  const filteredNotes = useMemo(() => {
+    if (filterTag === "trash") return trashedNotes;
+    if (filterTag) return activeNotes.filter(n => n[filterTag]);
+    return activeNotes;
+  }, [activeNotes, trashedNotes, filterTag]);
 
   const openCarousel = useCallback((images, index) => setCarousel({ images, index }), []);
   const closeCarousel = useCallback(() => setCarousel(null), []);
   const carouselPrev = useCallback(() => setCarousel(c => ({ ...c, index: (c.index - 1 + c.images.length) % c.images.length })), []);
   const carouselNext = useCallback(() => setCarousel(c => ({ ...c, index: (c.index + 1) % c.images.length })), []);
 
+  // Keyboard navigation for image carousel
+  useEffect(() => {
+    if (!carousel) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") closeCarousel();
+      if (e.key === "ArrowLeft") carouselPrev();
+      if (e.key === "ArrowRight") carouselNext();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [carousel, closeCarousel, carouselPrev, carouselNext]);
+
   useEffect(() => { document.body.style.background = C.bg; }, [C.bg]);
 
   useEffect(() => {
     if (activeId) {
-      const activeNote = notes.find(n => n.id === activeId);
-      if (activeNote) {
-        const slug = makeSlug(activeNote.title, activeNote.createdAt);
+      const active = notes.find(n => n.id === activeId);
+      if (active) {
+        const slug = makeSlug(active.title, active.createdAt);
         if (window.location.hash !== `#${slug}`) {
           window.history.replaceState(null, "", `#${slug}`);
         }
@@ -332,6 +677,7 @@ export default function PromptNotepad() {
   }, [notes]);
 
   useEffect(() => {
+    if (!supabase) return;
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setAuthChecked(true);
@@ -342,7 +688,8 @@ export default function PromptNotepad() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchNotes = async () => {
+  const fetchNotes = useCallback(async () => {
+    if (!supabase) return;
     try {
       const { data, error } = await supabase.from("notes").select("*").order("updated_at", { ascending: false });
       if (error) throw error;
@@ -351,6 +698,7 @@ export default function PromptNotepad() {
         images: row.images || [],
         files: row.files || [],
         important: row.important || false, personal: row.personal || false, client: row.client || false,
+        deleted: row.deleted || false,
         createdAt: new Date(row.created_at).getTime(),
         updatedAt: new Date(row.updated_at).getTime(),
       }));
@@ -375,8 +723,13 @@ export default function PromptNotepad() {
       const matchedNote = findNoteByHash(urlHash, mapped);
       if (matchedNote) {
         setActiveId(matchedNote.id);
-      } else if (mapped.length > 0) {
-        setActiveId(mapped[0].id);
+      } else {
+        const firstActive = mapped.find(n => !n.deleted);
+        if (firstActive) {
+          setActiveId(firstActive.id);
+        } else if (mapped.length > 0) {
+          setActiveId(mapped[0].id);
+        }
       }
 
       setFetchError(null);
@@ -386,7 +739,7 @@ export default function PromptNotepad() {
     } finally {
       setLoaded(true);
     }
-  };
+  }, []);
 
   const userId = user?.id;
   useEffect(() => {
@@ -400,7 +753,7 @@ export default function PromptNotepad() {
     setTimeout(() => {
       fetchNotes();
     }, 0);
-  }, [userId]);
+  }, [userId, fetchNotes]);
 
   const showToast = useCallback((msg, type = 'success') => {
     setToast({ msg, type });
@@ -408,48 +761,54 @@ export default function PromptNotepad() {
     toastTimer.current = setTimeout(() => setToast(null), 3000);
   }, []);
 
-  const debouncedSave = useCallback((note) => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    setSaving(true);
-    saveTimer.current = setTimeout(async () => {
+  const saveImmediately = useCallback(async (note) => {
+    if (!user || !supabase) return;
+    try {
       const { error } = await supabase.from("notes").upsert({
         id: note.id, user_id: user.id, title: note.title, text: note.text,
         images: note.images,
         files: note.files || [],
         important: note.important || false, personal: note.personal || false, client: note.client || false,
+        deleted: note.deleted || false,
         updated_at: new Date().toISOString(),
       });
-      if (error) {
-        console.error("Save error:", error);
+      if (error) throw error;
+      setSaving(false);
+    } catch (error) {
+      console.error("Save error:", error);
+      if (error.message && error.message.includes("deleted")) {
+        showToast("Run the SQL migration in Supabase to add the 'deleted' column for Trash", "error");
+      } else {
         showToast(error.message ? `Sync failed: ${error.message}` : "Sync failed — check connection", "error");
       }
       setSaving(false);
-    }, 800);
+    }
   }, [user, showToast]);
 
-  const createNote = useCallback(async () => {
-    const note = { id: generateId(), title: "Untitled Prompt", text: "", images: [], files: [], important: false, personal: false, client: false, createdAt: Date.now(), updatedAt: Date.now() };
-    const { error } = await supabase.from("notes").insert({
-      id: note.id, user_id: user.id, title: note.title, text: note.text, images: note.images, files: note.files,
-      important: false, personal: false, client: false,
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-    });
-    if (error) { console.error(error); return; }
-    setNotes(prev => [note, ...prev]);
-    setActiveId(note.id);
-    setMobOpen(false);
-    setTimeout(() => editorRef.current?.focus(), 50);
-  }, [user]);
+  const debouncedSave = useCallback((note) => {
+    pendingNotesRef.current[note.id] = note;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setSaving(true);
+    saveTimer.current = setTimeout(async () => {
+      const pending = pendingNotesRef.current[note.id];
+      if (pending) {
+        delete pendingNotesRef.current[note.id];
+        await saveImmediately(pending);
+      }
+    }, 800);
+  }, [saveImmediately]);
 
-  const deleteNote = useCallback(async (id) => {
-    const { error } = await supabase.from("notes").delete().eq("id", id);
-    if (error) { console.error(error); return; }
-    setNotes(prev => {
-      const updated = prev.filter(n => n.id !== id);
-      if (activeId === id) setActiveId(updated[0]?.id || null);
-      return updated;
-    });
-  }, [activeId]);
+  // Flush any pending save before tab close or refresh
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const ids = Object.keys(pendingNotesRef.current);
+      for (const id of ids) {
+        saveImmediately(pendingNotesRef.current[id]);
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [saveImmediately]);
 
   const updateNote = useCallback((id, patch) => {
     setNotes(prev => prev.map(n => {
@@ -459,6 +818,89 @@ export default function PromptNotepad() {
       return merged;
     }));
   }, [debouncedSave]);
+
+  const createNote = useCallback(async () => {
+    if (!user || !supabase) return;
+    if (filterTag === "trash") setFilterTag(null);
+    const note = {
+      id: generateId(),
+      title: "Untitled Prompt",
+      text: "",
+      images: [],
+      files: [],
+      important: false,
+      personal: false,
+      client: false,
+      deleted: false,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    const { error } = await supabase.from("notes").insert({
+      id: note.id, user_id: user.id, title: note.title, text: note.text, images: note.images, files: note.files,
+      important: false, personal: false, client: false, deleted: false,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    });
+    if (error) {
+      console.error(error);
+      showToast(error.message || "Failed to create prompt", "error");
+      return;
+    }
+    setNotes(prev => [note, ...prev]);
+    setActiveId(note.id);
+    setMobOpen(false);
+  }, [user, filterTag, showToast]);
+
+  // Trash Bin Operations
+  const moveToTrash = useCallback((id) => {
+    updateNote(id, { deleted: true });
+    showToast("Moved to trash 🗑", "warn");
+    if (activeId === id) {
+      const remainingActive = activeNotes.filter(n => n.id !== id);
+      setActiveId(remainingActive[0]?.id || null);
+    }
+  }, [updateNote, showToast, activeId, activeNotes]);
+
+  const restoreNote = useCallback((id) => {
+    updateNote(id, { deleted: false });
+    showToast("Prompt restored ✓", "success");
+  }, [updateNote, showToast]);
+
+  const permanentDeleteNote = useCallback(async (id) => {
+    if (!supabase) return;
+    if (!window.confirm("Permanently delete this prompt? This cannot be undone.")) return;
+    const { error } = await supabase.from("notes").delete().eq("id", id);
+    if (error) {
+      console.error("Delete error:", error);
+      showToast(error.message || "Failed to delete", "error");
+      return;
+    }
+    setNotes(prev => {
+      const updated = prev.filter(n => n.id !== id);
+      if (activeId === id) {
+        const remaining = filterTag === "trash" ? updated.filter(n => n.deleted) : updated.filter(n => !n.deleted);
+        setActiveId(remaining[0]?.id || null);
+      }
+      return updated;
+    });
+    showToast("Permanently deleted", "success");
+  }, [activeId, filterTag, showToast]);
+
+  const emptyTrash = useCallback(async () => {
+    if (!supabase || trashedNotes.length === 0) return;
+    if (!window.confirm(`Permanently delete all ${trashedNotes.length} prompt(s) in trash? This cannot be undone.`)) return;
+    const ids = trashedNotes.map(n => n.id);
+    const { error } = await supabase.from("notes").delete().in("id", ids);
+    if (error) {
+      console.error("Empty trash error:", error);
+      showToast(error.message || "Failed to empty trash", "error");
+      return;
+    }
+    setNotes(prev => prev.filter(n => !n.deleted));
+    if (trashedNotes.some(n => n.id === activeId)) {
+      setActiveId(null);
+    }
+    showToast("Trash emptied", "success");
+  }, [trashedNotes, activeId, showToast]);
 
   const toggleTag = useCallback((id, tag) => {
     setNotes(prev => prev.map(n => {
@@ -497,8 +939,6 @@ export default function PromptNotepad() {
       return merged;
     }));
   }, [debouncedSave]);
-
-  const MAX_DOC_SIZE = 5 * 1024 * 1024; // 5 MB
 
   const handleDocFileUpload = useCallback((e) => {
     const file = e.target.files[0];
@@ -555,7 +995,7 @@ export default function PromptNotepad() {
   }, [debouncedSave]);
 
   const handlePaste = useCallback((e) => {
-    if (!activeId) return;
+    if (!activeId || activeNote?.deleted) return;
     for (const item of (e.clipboardData?.items || [])) {
       if (item.type.startsWith("image/")) {
         e.preventDefault();
@@ -565,84 +1005,17 @@ export default function PromptNotepad() {
         return;
       }
     }
-  }, [activeId, addImageToNote]);
+  }, [activeId, activeNote?.deleted, addImageToNote]);
 
-  const handleLinkClick = useCallback((e) => {
-    if (!(e.ctrlKey || e.metaKey)) return;
-    const textarea = editorRef.current;
-    if (!textarea) return;
-    const pos = textarea.selectionStart;
-    const text = localText;
-    const URL_RE = /https?:\/\/[^\s<>"']+/g;
-    let match;
-    while ((match = URL_RE.exec(text)) !== null) {
-      if (pos >= match.index && pos <= match.index + match[0].length) {
-        e.preventDefault();
-        window.open(match[0], "_blank", "noopener,noreferrer");
-        return;
-      }
-    }
-  }, [localText]);
-
-  const syncBackdropScroll = useCallback((e) => {
-    if (backdropRef.current) {
-      backdropRef.current.scrollTop = e.target.scrollTop;
-      backdropRef.current.scrollLeft = e.target.scrollLeft;
-    }
+  const signOut = useCallback(async () => {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setNotes([]);
+    setActiveId(null);
+    setLoaded(false);
   }, []);
 
-  const copyText = useCallback(() => { if (!localText) return; navigator.clipboard.writeText(localText).then(() => showToast("Copied ✓", "success")).catch(() => showToast("Copy failed", "error")); }, [localText, showToast]);
-
-  const downloadTxt = useCallback(() => {
-    if (!activeNote) return;
-    const blob = new Blob([localText], { type: "text/plain;charset=utf-8" });
-    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `${localTitle.replace(/[^a-z0-9]/gi, "_")}.txt` });
-    a.click(); URL.revokeObjectURL(a.href); showToast("Downloaded .txt ✓", "success");
-  }, [activeNote, localText, localTitle, showToast]);
-
-  const downloadDoc = useCallback(() => {
-    if (!activeNote) return;
-    const lines = localText.split("\n")
-      .map(l => `<p style="font-family:Calibri,sans-serif;font-size:12pt;margin:0 0 6pt">${escapeHtml(l) || "&nbsp;"}</p>`)
-      .join("");
-    const imgs = (activeNote.images || []).map((img, i) =>
-      `<p style="margin:12pt 0 4pt;font-family:Calibri;font-size:9pt;color:#888">Image ${i + 1}</p>` +
-      `<p><img src="${img.dataUrl}" style="max-width:6.5in;width:100%;border:1pt solid #ddd"/></p>`
-    ).join("");
-    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
-<head><meta charset="utf-8"/>
-<style>
-  @page {
-    size: 8.5in 11in;
-    margin: 1in;
-    mso-header-margin: .5in;
-    mso-footer-margin: .5in;
-    mso-paper-source: 0;
-  }
-  body {
-    font-family: Calibri, sans-serif;
-    font-size: 12pt;
-    margin: 1in;
-  }
-  p { margin: 0 0 6pt; }
-  img { max-width: 100%; height: auto; }
-</style>
-</head>
-<body>
-<h1 style="font-family:Calibri;font-size:16pt;margin:0 0 14pt;color:#111">${escapeHtml(localTitle)}</h1>
-${lines}
-${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-weight:bold;color:#444;border-top:1pt solid #ddd;padding-top:10pt">Attached Images</p>${imgs}` : ""}
-</body></html>`;
-    const blob = new Blob(["\ufeff", html], { type: "application/msword" });
-    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `${localTitle.replace(/[^a-z0-9]/gi, "_")}.doc` });
-    a.click(); URL.revokeObjectURL(a.href); showToast("Downloaded .doc ✓", "success");
-  }, [activeNote, localText, localTitle, showToast]);
-
-  const signOut = useCallback(async () => { await supabase.auth.signOut(); setNotes([]); setActiveId(null); setLoaded(false); }, []);
-
-  const filteredNotes = useMemo(() => filterTag ? notes.filter(n => n[filterTag]) : notes, [notes, filterTag]);
-
-  // Storage usage calculation — memoized to avoid recomputing on every render
+  // Storage usage calculation
   const STORAGE_LIMIT = 500 * 1024 * 1024; // 500 MB
   const storageUsed = useMemo(() => {
     return notes.reduce((acc, n) => {
@@ -655,25 +1028,22 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
   const storagePercent = Math.min((storageUsed / STORAGE_LIMIT) * 100, 100);
   const storageColor = storagePercent > 90 ? C.danger : storagePercent > 70 ? "#f5a623" : C.accent;
 
-  // Stable callbacks for NoteRow
-  const handleNoteSelect = useCallback((id) => { setActiveId(id); setMobOpen(false); }, []);
+  const handleNoteSelect = useCallback((id) => {
+    setActiveId(id);
+    setMobOpen(false);
+  }, []);
 
-  // Handle text input — update local state instantly, debounce remote save
-  const handleTextChange = useCallback((e) => {
-    const text = e.target.value;
-    const firstLine = text.trim().split("\n")[0].slice(0, 50);
-    const newTitle = firstLine || "Untitled Prompt";
-    setLocalText(text);
-    setLocalTitle(newTitle);
-    updateNote(activeId, { text, title: newTitle });
-  }, [activeId, updateNote]);
-
-  // Handle title input
-  const handleTitleChange = useCallback((e) => {
-    const title = e.target.value;
-    setLocalTitle(title);
-    updateNote(activeId, { title });
-  }, [activeId, updateNote]);
+  if (!supabase) {
+    return (
+      <div style={{ background: C.bg, height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: mono, padding: 20 }}>
+        <div style={{ color: C.accent, fontSize: 22, fontWeight: 700, marginBottom: 12 }}>⌘ PROMPTS</div>
+        <div style={{ color: C.danger, fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Configuration Needed</div>
+        <div style={{ color: C.text, fontSize: 13, textAlign: "center", maxWidth: 420, lineHeight: 1.6, marginBottom: 20 }}>
+          Supabase environment variables are missing. Please add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to your <code>.env</code> file.
+        </div>
+      </div>
+    );
+  }
 
   if (!authChecked) return (
     <div style={{ background: C.bg, height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: mono, color: C.muted, gap: 10 }}>
@@ -694,7 +1064,7 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
       <div style={{ color: C.danger, fontSize: 18, fontWeight: 700, marginBottom: 12 }}>⚠️ Connection Error</div>
       <div style={{ color: C.text, fontSize: 13, textAlign: "center", maxWidth: 400, lineHeight: 1.6, marginBottom: 24 }}>{fetchError}</div>
       <div style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 16, borderRadius: 8, fontSize: 11, color: C.dim }}>
-        <b>Pro tip:</b> If it says "column does not exist", make sure you ran the SQL migration to add the <code>important</code>, <code>personal</code>, and <code>client</code> columns in your Supabase dashboard.
+        <b>Pro tip:</b> If it says "column does not exist", make sure you ran the SQL migration in <code>schema.sql</code> in your Supabase dashboard.
       </div>
       <button onClick={() => window.location.reload()} style={{ marginTop: 24, background: C.accent, color: C.accentFg, border: "none", padding: "10px 20px", borderRadius: 5, cursor: "pointer", fontWeight: 700 }}>Retry</button>
     </div>
@@ -743,10 +1113,11 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
           <button className="mob-hamburger" onClick={() => setMobOpen(o => !o)}>
             <span style={{ background: C.text }} /><span style={{ background: C.text }} /><span style={{ background: C.text }} />
           </button>
-          <span style={{ color: C.accent, fontSize: 15, fontWeight: 700, letterSpacing: "0.07em" }}>⌘ PROMPTS</span>
+          <span style={{ color: filterTag === "trash" ? "#f5a623" : C.accent, fontSize: 15, fontWeight: 700, letterSpacing: "0.07em" }}>
+            {filterTag === "trash" ? "🗑 TRASH" : "⌘ PROMPTS"}
+          </span>
           <button onClick={toggleTheme} style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.dim, borderRadius: 4, width: 30, height: 30, cursor: "pointer", fontSize: 14 }}>{theme === "dark" ? "☀" : "☾"}</button>
         </div>
-
 
         {/* Sidebar */}
         <aside className={`sidebar${mobOpen ? ' mob-open' : ''}`} style={{ background: C.surface, borderRight: `1px solid ${C.border}` }}>
@@ -758,29 +1129,89 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
                   style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.dim, borderRadius: 4, width: 26, height: 26, cursor: "pointer", fontSize: 16, display: "none", alignItems: "center", justifyContent: "center" }}>
                   &times;
                 </button>
-                <span style={{ color: C.accent, fontSize: 15, fontWeight: 700, letterSpacing: "0.07em" }}>⌘ PROMPTS</span>
+                <span style={{ color: filterTag === "trash" ? "#f5a623" : C.accent, fontSize: 15, fontWeight: 700, letterSpacing: "0.07em" }}>
+                  {filterTag === "trash" ? "🗑 TRASH" : "⌘ PROMPTS"}
+                </span>
               </div>
-              <button onClick={createNote} style={{ background: C.accent, color: "#000", border: "none", borderRadius: 4, width: 26, height: 26, fontSize: 20, cursor: "pointer", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+              <button onClick={createNote} title="New prompt" style={{ background: C.accent, color: "#000", border: "none", borderRadius: 4, width: 26, height: 26, fontSize: 20, cursor: "pointer", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
             </div>
-            {/* Row 2: tag filter icons */}
+            {/* Row 2: filter buttons including Trash */}
             <div style={{ display: "flex", gap: 4, padding: "0 14px 10px" }}>
-              {RAIL.map(r => (
-                <button key={String(r.id)} onClick={() => setFilterTag(filterTag === r.id ? null : r.id)} title={r.label}
-                  style={{ flex: 1, background: filterTag === r.id ? C.accent + "22" : "transparent", border: `1px solid ${filterTag === r.id ? C.accent + "66" : C.border}`, borderRadius: 4, height: 26, fontSize: 13, cursor: "pointer" }}>{r.icon}</button>
-              ))}
+              {RAIL.map(r => {
+                const isSelected = filterTag === r.id;
+                const isTrash = r.id === "trash";
+                return (
+                  <button
+                    key={String(r.id)}
+                    onClick={() => {
+                      const nextFilter = filterTag === r.id ? null : r.id;
+                      setFilterTag(nextFilter);
+                      const targetList = nextFilter === "trash"
+                        ? trashedNotes
+                        : nextFilter
+                          ? activeNotes.filter(n => n[nextFilter])
+                          : activeNotes;
+                      if (!targetList.some(n => n.id === activeId)) {
+                        setActiveId(targetList[0]?.id || null);
+                      }
+                    }}
+                    title={isTrash ? `Trash (${trashedNotes.length})` : r.label}
+                    style={{
+                      flex: 1,
+                      background: isSelected ? (isTrash ? "#ff444422" : C.accent + "22") : "transparent",
+                      border: `1px solid ${isSelected ? (isTrash ? "#ff444466" : C.accent + "66") : C.border}`,
+                      borderRadius: 4,
+                      height: 26,
+                      fontSize: 13,
+                      cursor: "pointer",
+                      position: "relative",
+                    }}>
+                    {r.icon}
+                    {isTrash && trashedNotes.length > 0 && (
+                      <span style={{
+                        position: "absolute", top: -2, right: -2,
+                        background: "#ff4444", color: "#fff",
+                        fontSize: 8, fontWeight: 700, borderRadius: "50%",
+                        width: 12, height: 12, display: "flex", alignItems: "center", justifyContent: "center"
+                      }}>
+                        {trashedNotes.length > 9 ? "9+" : trashedNotes.length}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           <div className="sidebar-list">
-            {filteredNotes.length === 0 && <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: "32px 14px", lineHeight: 1.8 }}>{filterTag ? `No ${filterTag} prompts.` : "No prompts yet."}<br />{filterTag ? "" : "Hit + to start."}</div>}
+            {filterTag === "trash" && trashedNotes.length > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface2 }}>
+                <span style={{ fontSize: 11, color: C.dim }}>{trashedNotes.length} in trash</span>
+                <button
+                  onClick={emptyTrash}
+                  style={{ background: "#ff444422", border: "1px solid #ff444455", color: "#ff6666", fontSize: 10, padding: "3px 8px", borderRadius: 4, cursor: "pointer", fontFamily: mono, fontWeight: 600 }}>
+                  Empty Trash
+                </button>
+              </div>
+            )}
+            {filteredNotes.length === 0 && (
+              <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: "32px 14px", lineHeight: 1.8 }}>
+                {filterTag === "trash" ? "Trash is empty." : filterTag ? `No ${filterTag} prompts.` : "No prompts yet."}
+                <br />
+                {filterTag ? "" : "Hit + to start."}
+              </div>
+            )}
             {filteredNotes.map(n => (
               <NoteRow
                 key={n.id}
                 note={n}
                 isActive={n.id === activeId}
+                isTrashMode={filterTag === "trash" || !!n.deleted}
                 C={C}
                 onSelect={handleNoteSelect}
-                onDelete={deleteNote}
+                onMoveToTrash={moveToTrash}
+                onRestore={restoreNote}
+                onPermanentDelete={permanentDeleteNote}
                 onToggleTag={toggleTag}
               />
             ))}
@@ -807,101 +1238,39 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
           </div>
         </aside>
 
-        {/* Editor */}
+        {/* Editor Area */}
         <main className="editor-main" style={{ background: C.bg }}>
           {!activeNote ? (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
-              <div style={{ fontSize: 52, opacity: 0.1 }}>✎</div>
-              <div style={{ color: C.muted, fontSize: 15 }}>Create a new prompt to get started</div>
-              <button onClick={createNote} style={{ background: C.accent, color: "#000", border: "none", borderRadius: 5, padding: "10px 24px", fontFamily: mono, fontSize: 13, fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em" }}>+ NEW PROMPT</button>
+              <div style={{ fontSize: 52, opacity: 0.1 }}>{filterTag === "trash" ? "🗑" : "✎"}</div>
+              <div style={{ color: C.muted, fontSize: 15 }}>
+                {filterTag === "trash"
+                  ? (trashedNotes.length === 0 ? "Trash is empty" : "Select a trashed prompt to view or restore")
+                  : "Create a new prompt to get started"}
+              </div>
+              {filterTag !== "trash" && (
+                <button onClick={createNote} style={{ background: C.accent, color: "#000", border: "none", borderRadius: 5, padding: "10px 24px", fontFamily: mono, fontSize: 13, fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em" }}>+ NEW PROMPT</button>
+              )}
             </div>
           ) : (
-            <>
-              <div className="editor-toolbar" style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 18px", borderBottom: `1px solid ${C.border}`, background: C.surface, flexShrink: 0 }}>
-                <input value={localTitle} onChange={handleTitleChange} placeholder="Prompt title…"
-                  style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: C.text, fontFamily: mono, fontSize: 15, fontWeight: 700, minWidth: 0 }} />
-                <div className="editor-tools" style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
-                  <button onClick={copyText} className="tool-btn" style={toolBtnStyle}>Copy</button>
-                  <button onClick={downloadTxt} className="tool-btn" style={toolBtnStyle}>↓ .txt</button>
-                  <button onClick={downloadDoc} className="tool-btn" style={toolBtnStyle}>↓ .doc</button>
-                  <button onClick={() => fileInputRef.current?.click()} className="tool-btn" style={toolBtnStyle}>+ Image</button>
-                  <button onClick={() => docInputRef.current?.click()} className="tool-btn" style={toolBtnStyle}>+ File</button>
-                  <button onClick={toggleTheme} title={theme === "dark" ? "Light mode" : "Dark mode"}
-                    style={{ ...toolBtnStyle, fontSize: 15, padding: "4px 9px" }}>
-                    {theme === "dark" ? "☀" : "☾"}
-                  </button>
-                </div>
-              </div>
-              <div className="editor-body">
-
-                <div className="editor-text-wrap">
-                  <EditorBackdrop text={localText} C={C} backdropRef={backdropRef} />
-                  <textarea ref={editorRef} value={localText}
-                    onChange={handleTextChange}
-                    onClick={handleLinkClick}
-                    onScroll={syncBackdropScroll}
-                    placeholder={"Write your prompt here…\n\nPaste image: Ctrl+V / Cmd+V\nOr click '+ Image' to attach from file"}
-                    spellCheck={false}
-                    style={{
-                      position: "relative", zIndex: 1,
-                      width: "100%", height: "100%",
-                      background: "transparent", border: "none", outline: "none", resize: "none",
-                      color: "transparent", caretColor: C.text,
-                      fontFamily: mono, fontSize: 15, lineHeight: 1.85, padding: "22px",
-                    }}
-                  />
-                </div>
-
-                {activeNote.images?.length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: "0 22px 14px" }}>
-                    {activeNote.images.map((img, idx) => (
-                      <div key={img.id} style={{ position: "relative", border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden", lineHeight: 0 }}>
-                        <img src={img.dataUrl} onClick={() => openCarousel(activeNote.images, idx)}
-                          className="img-thumb" style={{ maxWidth: 320, maxHeight: 240, display: "block", objectFit: "contain", background: "#111", cursor: "zoom-in" }} alt="" />
-                        <button onClick={() => removeImage(activeNote.id, img.id)} style={{ position: "absolute", top: 5, right: 5, background: "rgba(0,0,0,0.75)", border: "none", color: "#fff", width: 22, height: 22, borderRadius: "50%", fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* File Attachments */}
-                {activeNote.files?.length > 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 22px 14px" }}>
-                    <div style={{ color: C.dim, fontSize: 11, marginBottom: 2, letterSpacing: "0.05em", textTransform: "uppercase" }}>Attachments</div>
-                    {activeNote.files.map(f => {
-                      const iconMap = { pdf: "📄", md: "📝", csv: "📊" };
-                      const icon = iconMap[f.type] || "📎";
-                      return (
-                        <div key={f.id} style={{
-                          display: "flex", alignItems: "center", gap: 10,
-                          background: C.surface, border: `1px solid ${C.border}`,
-                          borderRadius: 6, padding: "8px 12px",
-                        }}>
-                          <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ color: C.text, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
-                            <div style={{ color: C.dim, fontSize: 11 }}>{formatSize(f.size)}</div>
-                          </div>
-                          <a href={f.dataUrl} download={f.name}
-                            style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.dim, borderRadius: 4, padding: "4px 10px", fontSize: 11, fontFamily: mono, textDecoration: "none", cursor: "pointer", flexShrink: 0 }}
-                            title={`Download ${f.name}`}
-                          >↓ Download</a>
-                          <button onClick={() => removeFile(activeNote.id, f.id)}
-                            style={{ background: "#ff444422", border: "1px solid #ff444455", color: "#ff6666", width: 22, height: 22, borderRadius: "50%", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
-                            title="Remove attachment"
-                          >×</button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <div style={{ padding: "8px 22px", borderTop: `1px solid ${C.border}`, color: C.muted, fontSize: 12, display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
-                  <span>Ctrl+Click links · Ctrl+V paste image · + File attaches .md/.csv/.pdf</span>
-                  <span>{localText.length} chars</span>
-                </div>
-              </div>{/* end editor-body */}
-            </>
+            <EditorArea
+              key={activeNote.id}
+              note={activeNote}
+              C={C}
+              theme={theme}
+              mono={mono}
+              toggleTheme={toggleTheme}
+              onUpdateNote={updateNote}
+              onRestore={restoreNote}
+              onPermanentDelete={permanentDeleteNote}
+              openCarousel={openCarousel}
+              showToast={showToast}
+              fileInputRef={fileInputRef}
+              docInputRef={docInputRef}
+              toolBtnStyle={toolBtnStyle}
+              removeImage={removeImage}
+              removeFile={removeFile}
+            />
           )}
         </main>
       </div>
