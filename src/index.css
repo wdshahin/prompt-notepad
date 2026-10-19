@@ -238,12 +238,8 @@ textarea, input { transition: none !important; }
   padding: 22px;
   min-height: 100%;
   flex: 1;
-}
-.wysiwyg-content:empty::before {
-  content: attr(data-placeholder);
-  color: #777;
-  pointer-events: none;
-  display: block;
+  background: #242424;
+  color: #f0f0f0;
 }
 .wysiwyg-content h1 {
   font-size: 1.85em;

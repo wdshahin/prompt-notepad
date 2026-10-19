@@ -366,7 +366,8 @@ function SharedView({ token }) {
 
   const copyText = () => {
     if (!note?.text) return;
-    navigator.clipboard.writeText(note.text).then(() => {
+    const plain = note.text.replace(/<[^>]+>/g, "");
+    navigator.clipboard.writeText(plain).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     });
@@ -429,8 +430,14 @@ function SharedView({ token }) {
             <div style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>Last updated {formatDateTime(note.updated_at)}</div>
           </div>
 
-          <div style={{ padding: 22, fontSize: 15, lineHeight: 1.85, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-            {note.text ? <Linkified text={note.text} C={C} /> : <span style={{ color: C.muted }}>(This note has no text.)</span>}
+          <div style={{ padding: 22, fontSize: 15, lineHeight: 1.85, wordBreak: "break-word" }}>
+            {!note.text ? (
+              <span style={{ color: C.muted }}>(This note has no text.)</span>
+            ) : /^\s*<[a-z][\s\S]*>/i.test(note.text) ? (
+              <div className="wysiwyg-content" style={{ padding: 0, background: "transparent", color: C.text }} dangerouslySetInnerHTML={{ __html: note.text }} />
+            ) : (
+              <div style={{ whiteSpace: "pre-wrap" }}><Linkified text={note.text} C={C} /></div>
+            )}
           </div>
 
           {images.length > 0 && (
@@ -504,19 +511,7 @@ function formatSize(bytes) {
 // Escape HTML chars
 const escapeHtml = s => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-function highlightLinks(text, C) {
-  const URL_RE = /https?:\/\/[^\s<>"']+/g;
-  let result = "";
-  let lastIndex = 0;
-  let match;
-  while ((match = URL_RE.exec(text)) !== null) {
-    result += escapeHtml(text.slice(lastIndex, match.index));
-    result += `<span style="color:${C.accent};text-decoration:underline;text-underline-offset:3px;text-decoration-color:${C.accent}99">${escapeHtml(match[0])}</span>`;
-    lastIndex = URL_RE.lastIndex;
-  }
-  result += escapeHtml(text.slice(lastIndex));
-  return result + "\n";
-}
+
 
 function AuthScreen({ C, theme, toggleTheme }) {
   const [mode, setMode] = useState("login");
@@ -740,24 +735,6 @@ const NoteRow = memo(function NoteRow({
   );
 });
 
-// ─── Memoized link-highlighted backdrop ────────────────────────
-const EditorBackdrop = memo(function EditorBackdrop({ text, C, backdropRef }) {
-  const html = useMemo(() => highlightLinks(text, C), [text, C]);
-  return (
-    <div
-      ref={backdropRef}
-      aria-hidden="true"
-      className="editor-backdrop"
-      style={{
-        position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-        padding: "22px", fontFamily: mono, fontSize: 15, lineHeight: 1.85,
-        color: C.text, whiteSpace: "pre-wrap", wordBreak: "break-word",
-        overflowY: "hidden", pointerEvents: "none", zIndex: 0,
-      }}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
-});
 
 // ─── Editor Area Component (keyed per note ID) ──────────────────
 function EditorArea({
@@ -782,19 +759,29 @@ function EditorArea({
   const isTrashed = !!note.deleted;
   const [localText, setLocalText] = useState(note.text || "");
   const [localTitle, setLocalTitle] = useState(note.title || "");
-  const [isWysiwyg, setIsWysiwyg] = useState(false);
+  const [isWysiwyg, setIsWysiwyg] = useState(() => {
+    try {
+      const saved = localStorage.getItem("wysiwyg_" + note.id);
+      if (saved !== null) return saved === "true";
+    } catch {
+      // Ignore
+    }
+    if (note.isRich) return true;
+    const text = note.text || "";
+    if (/^\s*<(p|h[1-6]|ul|ol|blockquote|div|pre)\b/i.test(text)) return true;
+    return false;
+  });
   const [showShare, setShowShare] = useState(false);
   
   // Custom title detection: true if title is already custom (not default and not matching first line)
   const [isCustomTitle, setIsCustomTitle] = useState(() => {
     if (!note.title || note.title === "Untitled Prompt") return false;
-    const firstLine = (note.text || "").trim().split("\n")[0].slice(0, 50);
-    return note.title !== firstLine;
+    const cleanFirst = (note.text || "").replace(/<[^>]+>/g, " ").trim().split("\n")[0].slice(0, 50).trim();
+    return note.title !== cleanFirst;
   });
 
   const editorRef = useRef(null);
   const wysiwygRef = useRef(null);
-  const backdropRef = useRef(null);
 
   useEffect(() => {
     if (!note.text && editorRef.current && !isWysiwyg) {
@@ -802,27 +789,43 @@ function EditorArea({
     }
   }, [note.id, note.text, isWysiwyg]);
 
-  // Synchronize HTML into contentEditable when toggling WYSIWYG ON
+  // Synchronize HTML into contentEditable on initial mount if in Rich Text mode
   useEffect(() => {
     if (isWysiwyg && wysiwygRef.current) {
-      wysiwygRef.current.innerHTML = marked.parse(localText || "");
-      wysiwygRef.current.focus();
+      const text = localText || "";
+      const html = /^\s*<[a-z][\s\S]*>/i.test(text) ? text : marked.parse(text);
+      if (wysiwygRef.current.innerHTML !== html) {
+        wysiwygRef.current.innerHTML = html;
+      }
     }
-  }, [isWysiwyg]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const hasText = useMemo(() => {
+    if (!localText) return false;
+    return Boolean(localText.replace(/<[^>]+>/g, "").trim());
+  }, [localText]);
+
+  const charCount = useMemo(() => {
+    if (!localText) return 0;
+    if (isWysiwyg) {
+      return localText.replace(/<[^>]+>/g, "").length;
+    }
+    return localText.length;
+  }, [isWysiwyg, localText]);
 
   const syncFromWysiwyg = useCallback(() => {
     if (!wysiwygRef.current) return;
     const html = wysiwygRef.current.innerHTML;
-    const md = turndownService.turndown(html);
-    setLocalText(md);
+    setLocalText(html);
 
     if (!isCustomTitle) {
-      const firstLine = md.trim().split("\n")[0].slice(0, 50).replace(/^[#*>\-\d.\s]+/, "").trim();
+      const cleanText = html.replace(/<[^>]+>/g, " ").trim();
+      const firstLine = cleanText.split("\n")[0].slice(0, 50).trim();
       const newTitle = firstLine || "Untitled Prompt";
       setLocalTitle(newTitle);
-      onUpdateNote(note.id, { text: md, title: newTitle });
+      onUpdateNote(note.id, { text: html, title: newTitle, isRich: true });
     } else {
-      onUpdateNote(note.id, { text: md });
+      onUpdateNote(note.id, { text: html, isRich: true });
     }
   }, [isCustomTitle, note.id, onUpdateNote]);
 
@@ -833,18 +836,41 @@ function EditorArea({
   const handleToggleWysiwyg = useCallback(() => {
     if (isTrashed) return;
     if (!isWysiwyg) {
-      setIsWysiwyg(true);
-    } else {
-      // Sync pending edits from contentEditable before switching back to plain text
-      if (wysiwygRef.current) {
-        const html = wysiwygRef.current.innerHTML;
-        const md = turndownService.turndown(html);
-        setLocalText(md);
-        onUpdateNote(note.id, { text: md });
+      // Switching from Plain to Rich Text:
+      const html = localText ? (/^\s*<[a-z][\s\S]*>/i.test(localText) ? localText : marked.parse(localText)) : "";
+      setLocalText(html);
+      try {
+        localStorage.setItem("wysiwyg_" + note.id, "true");
+      } catch {
+        // Ignore
       }
+      onUpdateNote(note.id, { text: html, isRich: true });
+      setIsWysiwyg(true);
+      setTimeout(() => {
+        if (wysiwygRef.current) {
+          wysiwygRef.current.innerHTML = html;
+          wysiwygRef.current.focus();
+        }
+      }, 0);
+    } else {
+      // Switching from Rich Text back to Plain Text:
+      const currentHtml = wysiwygRef.current ? wysiwygRef.current.innerHTML : localText;
+      const md = turndownService.turndown(currentHtml || "");
+      setLocalText(md);
+      try {
+        localStorage.setItem("wysiwyg_" + note.id, "false");
+      } catch {
+        // Ignore
+      }
+      onUpdateNote(note.id, { text: md, isRich: false });
       setIsWysiwyg(false);
+      setTimeout(() => {
+        if (editorRef.current) {
+          editorRef.current.focus();
+        }
+      }, 0);
     }
-  }, [isTrashed, isWysiwyg, note.id, onUpdateNote]);
+  }, [isTrashed, isWysiwyg, localText, note.id, onUpdateNote]);
 
   const execFormat = useCallback((command, value = null) => {
     if (isTrashed || !wysiwygRef.current) return;
@@ -898,8 +924,8 @@ function EditorArea({
     setLocalTitle(val);
     if (!val.trim()) {
       setIsCustomTitle(false);
-      const firstLine = localText.trim().split("\n")[0].slice(0, 50);
-      onUpdateNote(note.id, { title: firstLine || "Untitled Prompt" });
+      const cleanFirst = (localText || "").replace(/<[^>]+>/g, " ").trim().split("\n")[0].slice(0, 50).trim();
+      onUpdateNote(note.id, { title: cleanFirst || "Untitled Prompt" });
     } else {
       setIsCustomTitle(true);
       onUpdateNote(note.id, { title: val });
@@ -911,22 +937,14 @@ function EditorArea({
     setLocalText(text);
 
     if (!isCustomTitle) {
-      const firstLine = text.trim().split("\n")[0].slice(0, 50);
-      const newTitle = firstLine || "Untitled Prompt";
+      const cleanFirst = text.replace(/<[^>]+>/g, " ").trim().split("\n")[0].slice(0, 50).trim();
+      const newTitle = cleanFirst || "Untitled Prompt";
       setLocalTitle(newTitle);
-      onUpdateNote(note.id, { text, title: newTitle });
+      onUpdateNote(note.id, { text, title: newTitle, isRich: false });
     } else {
-      // Locked custom title: do not overwrite title when user types in the body!
-      onUpdateNote(note.id, { text });
+      onUpdateNote(note.id, { text, isRich: false });
     }
   }, [isCustomTitle, note.id, onUpdateNote]);
-
-  const syncBackdropScroll = useCallback((e) => {
-    if (backdropRef.current) {
-      backdropRef.current.scrollTop = e.target.scrollTop;
-      backdropRef.current.scrollLeft = e.target.scrollLeft;
-    }
-  }, []);
 
   const handleLinkClick = useCallback((e) => {
     if (!(e.ctrlKey || e.metaKey)) return;
@@ -947,13 +965,20 @@ function EditorArea({
 
   const copyText = useCallback(() => {
     if (!localText) return;
-    navigator.clipboard.writeText(localText)
+    const plainContent = isWysiwyg && wysiwygRef.current
+      ? (wysiwygRef.current.innerText || localText.replace(/<[^>]+>/g, ""))
+      : localText;
+    navigator.clipboard.writeText(plainContent)
       .then(() => showToast("Copied ✓", "success"))
       .catch(() => showToast("Copy failed", "error"));
-  }, [localText, showToast]);
+  }, [isWysiwyg, localText, showToast]);
 
   const downloadTxt = useCallback(() => {
-    const blob = new Blob([localText], { type: "text/plain;charset=utf-8" });
+    let plainContent = localText;
+    if (isWysiwyg && wysiwygRef.current) {
+      plainContent = wysiwygRef.current.innerText || localText.replace(/<[^>]+>/g, "");
+    }
+    const blob = new Blob([plainContent], { type: "text/plain;charset=utf-8" });
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(blob),
       download: `${(localTitle || "prompt").replace(/[^a-z0-9]/gi, "_")}.txt`
@@ -961,12 +986,14 @@ function EditorArea({
     a.click();
     URL.revokeObjectURL(a.href);
     showToast("Downloaded .txt ✓", "success");
-  }, [localText, localTitle, showToast]);
+  }, [isWysiwyg, localText, localTitle, showToast]);
 
   const downloadDoc = useCallback(() => {
-    const lines = localText.split("\n")
-      .map(l => `<p style="font-family:Calibri,sans-serif;font-size:12pt;margin:0 0 6pt">${escapeHtml(l) || "&nbsp;"}</p>`)
-      .join("");
+    const bodyHtml = isWysiwyg
+      ? localText
+      : localText.split("\n")
+          .map(l => `<p style="font-family:Calibri,sans-serif;font-size:12pt;margin:0 0 6pt">${escapeHtml(l) || "&nbsp;"}</p>`)
+          .join("");
     const imgs = (note.images || []).map((img, i) =>
       `<p style="margin:12pt 0 4pt;font-family:Calibri;font-size:9pt;color:#888">Image ${i + 1}</p>` +
       `<p><img src="${img.dataUrl}" style="max-width:6.5in;width:100%;border:1pt solid #ddd"/></p>`
@@ -982,7 +1009,7 @@ function EditorArea({
 </head>
 <body>
 <h1 style="font-family:Calibri;font-size:16pt;margin:0 0 14pt;color:#111">${escapeHtml(localTitle || "Untitled Prompt")}</h1>
-${lines}
+${bodyHtml}
 ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-weight:bold;color:#444;border-top:1pt solid #ddd;padding-top:10pt">Attached Images</p>${imgs}` : ""}
 </body></html>`;
     const blob = new Blob(["\ufeff", html], { type: "application/msword" });
@@ -993,7 +1020,7 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
     a.click();
     URL.revokeObjectURL(a.href);
     showToast("Downloaded .doc ✓", "success");
-  }, [localText, localTitle, note.images, showToast]);
+  }, [isWysiwyg, localText, localTitle, note.images, showToast]);
 
   return (
     <>
@@ -1290,43 +1317,69 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
         />
       )}
 
-      <div className="editor-body">
+      <div
+        className="editor-body"
+        style={{
+          position: "relative",
+          background: isWysiwyg ? "#242424" : "transparent",
+          transition: "background 0.2s ease",
+        }}
+      >
         {isWysiwyg ? (
-          <div
-            ref={wysiwygRef}
-            contentEditable={!isTrashed}
-            suppressContentEditableWarning
-            onInput={handleWysiwygInput}
-            onClick={handleWysiwygClick}
-            data-placeholder={isTrashed ? "This prompt is in trash." : "Write your formatted prompt here…\nUse the toolbar above or shortcuts like Ctrl+B, Ctrl+I, Ctrl+U"}
-            className="wysiwyg-content"
-            style={{
-              fontFamily: mono,
-              fontSize: 15,
-              lineHeight: 1.85,
-              color: C.text,
-              caretColor: isTrashed ? "transparent" : C.text,
-              background: "transparent",
-              cursor: isTrashed ? "default" : "text",
-            }}
-          />
+          <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", minHeight: "100%", background: "#242424" }}>
+            {!hasText && !isTrashed && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 22,
+                  left: 22,
+                  color: "#888",
+                  pointerEvents: "none",
+                  userSelect: "none",
+                  fontFamily: mono,
+                  fontSize: 15,
+                  lineHeight: 1.85,
+                }}
+              >
+                Write your formatted prompt here… Use the formatting toolbar above or shortcuts like Ctrl+B, Ctrl+I, Ctrl+U
+              </div>
+            )}
+            <div
+              ref={wysiwygRef}
+              contentEditable={!isTrashed}
+              suppressContentEditableWarning
+              onInput={handleWysiwygInput}
+              onClick={handleWysiwygClick}
+              className="wysiwyg-content"
+              style={{
+                fontFamily: mono,
+                fontSize: 15,
+                lineHeight: 1.85,
+                color: "#f0f0f0",
+                caretColor: isTrashed ? "transparent" : "#c8ff57",
+                background: "#242424",
+                cursor: isTrashed ? "default" : "text",
+                padding: "22px",
+                minHeight: "100%",
+                flex: 1,
+              }}
+            />
+          </div>
         ) : (
-          <div className="editor-text-wrap">
-            <EditorBackdrop text={localText} C={C} backdropRef={backdropRef} />
+          <div className="editor-text-wrap" style={{ flex: 1, position: "relative", minHeight: 200 }}>
             <textarea
               ref={editorRef}
               value={localText}
               onChange={handleTextChange}
               onClick={handleLinkClick}
-              onScroll={syncBackdropScroll}
               placeholder={isTrashed ? "This prompt is in trash." : "Write your prompt here…\n\nPaste image: Ctrl+V / Cmd+V\nOr click 'Image' to attach from file"}
               spellCheck={false}
               readOnly={isTrashed}
               style={{
-                position: "relative", zIndex: 1,
+                position: "absolute", top: 0, left: 0,
                 width: "100%", height: "100%",
                 background: "transparent", border: "none", outline: "none", resize: "none",
-                color: "transparent", caretColor: isTrashed ? "transparent" : C.text,
+                color: C.text, caretColor: isTrashed ? "transparent" : C.text,
                 fontFamily: mono, fontSize: 15, lineHeight: 1.85, padding: "22px",
               }}
             />
@@ -1407,7 +1460,7 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
             }} />
             <span>{isWysiwyg ? "Rich Text" : "Plain"}</span>
             <span>·</span>
-            <span>{localText.length} chars</span>
+            <span>{charCount} chars</span>
           </span>
         </div>
       </div>
