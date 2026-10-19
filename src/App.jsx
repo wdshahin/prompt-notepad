@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { marked } from "marked";
-import TurndownService from "turndown";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
@@ -12,29 +11,35 @@ const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
 const mono = "'JetBrains Mono','Fira Code','Cascadia Code',monospace";
 const MAX_DOC_SIZE = 5 * 1024 * 1024; // 5 MB
 
-// Configure Markdown ↔ HTML converters for seamless WYSIWYG
+// Configure Markdown parser
 marked.setOptions({
   breaks: true,
   gfm: true,
 });
 
-const turndownService = new TurndownService({
-  headingStyle: "atx",
-  hr: "---",
-  bulletListMarker: "-",
-  codeBlockStyle: "fenced",
-  emDelimiter: "*",
-});
+// WordPress Classic Editor-style HTML code formatter (keeps code format in Plain Text)
+function formatHtmlCode(html) {
+  if (!html) return "";
+  let formatted = html.replace(/\r\n/g, "\n");
 
-turndownService.addRule("strikethrough", {
-  filter: ["del", "s", "strike"],
-  replacement: (content) => "~~" + content + "~~",
-});
+  const blockTags = [
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "p", "blockquote", "pre", "hr", "ul", "ol", "table", "div"
+  ];
 
-turndownService.addRule("underline", {
-  filter: ["u", "ins"],
-  replacement: (content) => "<u>" + content + "</u>",
-});
+  blockTags.forEach(tag => {
+    const openRegex = new RegExp(`(<${tag}[^>]*>)`, "gi");
+    const closeRegex = new RegExp(`(</${tag}>)`, "gi");
+    formatted = formatted
+      .replace(openRegex, m => "\n" + m)
+      .replace(closeRegex, m => m + "\n");
+  });
+
+  formatted = formatted.replace(/(<li[^>]*>)/gi, m => "\n  " + m);
+  formatted = formatted.replace(/(<\/ul>|<\/ol>)/gi, m => "\n" + m);
+
+  return formatted.replace(/\n{3,}/g, "\n\n").trim();
+}
 
 function getC(theme) {
   if (theme === "light") return {
@@ -853,16 +858,16 @@ function EditorArea({
         }
       }, 0);
     } else {
-      // Switching from Rich Text back to Plain Text:
+      // Switching from Rich Text back to Plain Text: keep HTML code format like WordPress default classic editor
       const currentHtml = wysiwygRef.current ? wysiwygRef.current.innerHTML : localText;
-      const md = turndownService.turndown(currentHtml || "");
-      setLocalText(md);
+      const formattedCode = formatHtmlCode(currentHtml || "");
+      setLocalText(formattedCode);
       try {
         localStorage.setItem("wysiwyg_" + note.id, "false");
       } catch {
         // Ignore
       }
-      onUpdateNote(note.id, { text: md, isRich: false });
+      onUpdateNote(note.id, { text: formattedCode, isRich: false });
       setIsWysiwyg(false);
       setTimeout(() => {
         if (editorRef.current) {
