@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { marked } from "marked";
+import TurndownService from "turndown";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
@@ -9,6 +11,30 @@ const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
 
 const mono = "'JetBrains Mono','Fira Code','Cascadia Code',monospace";
 const MAX_DOC_SIZE = 5 * 1024 * 1024; // 5 MB
+
+// Configure Markdown ↔ HTML converters for seamless WYSIWYG
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+});
+
+const turndownService = new TurndownService({
+  headingStyle: "atx",
+  hr: "---",
+  bulletListMarker: "-",
+  codeBlockStyle: "fenced",
+  emDelimiter: "*",
+});
+
+turndownService.addRule("strikethrough", {
+  filter: ["del", "s", "strike"],
+  replacement: (content) => "~~" + content + "~~",
+});
+
+turndownService.addRule("underline", {
+  filter: ["u", "ins"],
+  replacement: (content) => "<u>" + content + "</u>",
+});
 
 function getC(theme) {
   if (theme === "light") return {
@@ -753,8 +779,11 @@ function EditorArea({
   onEnableShare,
   onDisableShare,
 }) {
+  const isTrashed = !!note.deleted;
   const [localText, setLocalText] = useState(note.text || "");
   const [localTitle, setLocalTitle] = useState(note.title || "");
+  const [isWysiwyg, setIsWysiwyg] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   
   // Custom title detection: true if title is already custom (not default and not matching first line)
   const [isCustomTitle, setIsCustomTitle] = useState(() => {
@@ -764,13 +793,105 @@ function EditorArea({
   });
 
   const editorRef = useRef(null);
+  const wysiwygRef = useRef(null);
   const backdropRef = useRef(null);
 
   useEffect(() => {
-    if (!note.text && editorRef.current) {
+    if (!note.text && editorRef.current && !isWysiwyg) {
       editorRef.current.focus();
     }
-  }, [note.id, note.text]);
+  }, [note.id, note.text, isWysiwyg]);
+
+  // Synchronize HTML into contentEditable when toggling WYSIWYG ON
+  useEffect(() => {
+    if (isWysiwyg && wysiwygRef.current) {
+      wysiwygRef.current.innerHTML = marked.parse(localText || "");
+      wysiwygRef.current.focus();
+    }
+  }, [isWysiwyg]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const syncFromWysiwyg = useCallback(() => {
+    if (!wysiwygRef.current) return;
+    const html = wysiwygRef.current.innerHTML;
+    const md = turndownService.turndown(html);
+    setLocalText(md);
+
+    if (!isCustomTitle) {
+      const firstLine = md.trim().split("\n")[0].slice(0, 50).replace(/^[#*>\-\d.\s]+/, "").trim();
+      const newTitle = firstLine || "Untitled Prompt";
+      setLocalTitle(newTitle);
+      onUpdateNote(note.id, { text: md, title: newTitle });
+    } else {
+      onUpdateNote(note.id, { text: md });
+    }
+  }, [isCustomTitle, note.id, onUpdateNote]);
+
+  const handleWysiwygInput = useCallback(() => {
+    syncFromWysiwyg();
+  }, [syncFromWysiwyg]);
+
+  const handleToggleWysiwyg = useCallback(() => {
+    if (isTrashed) return;
+    if (!isWysiwyg) {
+      setIsWysiwyg(true);
+    } else {
+      // Sync pending edits from contentEditable before switching back to plain text
+      if (wysiwygRef.current) {
+        const html = wysiwygRef.current.innerHTML;
+        const md = turndownService.turndown(html);
+        setLocalText(md);
+        onUpdateNote(note.id, { text: md });
+      }
+      setIsWysiwyg(false);
+    }
+  }, [isTrashed, isWysiwyg, note.id, onUpdateNote]);
+
+  const execFormat = useCallback((command, value = null) => {
+    if (isTrashed || !wysiwygRef.current) return;
+    wysiwygRef.current.focus();
+    try {
+      document.execCommand(command, false, value);
+    } catch {
+      // Ignored if browser rejects command
+    }
+    syncFromWysiwyg();
+  }, [isTrashed, syncFromWysiwyg]);
+
+  const formatInlineCode = useCallback(() => {
+    if (isTrashed || !wysiwygRef.current) return;
+    wysiwygRef.current.focus();
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    const selectedText = range.toString();
+    if (!selectedText) {
+      try {
+        document.execCommand("insertHTML", false, "<code>code</code>");
+      } catch {
+        // Fallback
+      }
+    } else {
+      const parentCode = selection.anchorNode.parentElement?.closest("code");
+      if (parentCode) {
+        const textNode = document.createTextNode(parentCode.textContent);
+        parentCode.parentNode.replaceChild(textNode, parentCode);
+      } else {
+        const codeNode = document.createElement("code");
+        codeNode.textContent = selectedText;
+        range.deleteContents();
+        range.insertNode(codeNode);
+      }
+    }
+    syncFromWysiwyg();
+  }, [isTrashed, syncFromWysiwyg]);
+
+  const handleWysiwygClick = useCallback((e) => {
+    const link = e.target.closest("a");
+    if (link && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      window.open(link.href, "_blank", "noopener,noreferrer");
+    }
+  }, []);
 
   const handleTitleChange = useCallback((e) => {
     const val = e.target.value;
@@ -874,9 +995,6 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
     showToast("Downloaded .doc ✓", "success");
   }, [localText, localTitle, note.images, showToast]);
 
-  const isTrashed = !!note.deleted;
-  const [showShare, setShowShare] = useState(false);
-
   return (
     <>
       {isTrashed && (
@@ -919,6 +1037,56 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
           style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: C.text, fontFamily: mono, fontSize: 15, fontWeight: 700, minWidth: 0, opacity: isTrashed ? 0.6 : 1 }}
         />
         <div className="editor-tools" style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+          {/* WYSIWYG Mode Toggle Button / Switch */}
+          <button
+            type="button"
+            onClick={handleToggleWysiwyg}
+            className="tool-btn"
+            title={isWysiwyg ? "Switch to Plain Text editor" : "Switch to Rich Text (WYSIWYG) formatted editor"}
+            style={{
+              ...toolBtnStyle,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "4px 9px",
+              background: isWysiwyg ? `${C.accent}18` : "transparent",
+              borderColor: isWysiwyg ? C.accent : C.border,
+              color: isWysiwyg ? (theme === "light" ? "#111" : C.accent) : C.dim,
+              fontWeight: 600,
+              cursor: isTrashed ? "not-allowed" : "pointer",
+            }}
+            disabled={isTrashed}
+          >
+            <span style={{ fontSize: 11, fontFamily: mono, fontWeight: 700 }}>{isWysiwyg ? "Rich Text" : "Plain"}</span>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                width: 26,
+                height: 14,
+                borderRadius: 8,
+                background: isWysiwyg ? C.accent : (theme === "light" ? "#bbb" : "#383838"),
+                position: "relative",
+                transition: "background 0.2s ease",
+              }}
+            >
+              <span
+                style={{
+                  display: "block",
+                  width: 10,
+                  height: 10,
+                  borderRadius: "50%",
+                  background: isWysiwyg ? C.accentFg : "#fff",
+                  position: "absolute",
+                  top: 2,
+                  left: isWysiwyg ? 14 : 2,
+                  transition: "left 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.3)",
+                }}
+              />
+            </span>
+          </button>
+
           <button onClick={copyText} className="tool-btn" style={toolBtnStyle}>Copy</button>
           <button onClick={downloadTxt} className="tool-btn" style={toolBtnStyle}>↓ .txt</button>
           <button onClick={downloadDoc} className="tool-btn" style={toolBtnStyle}>↓ .doc</button>
@@ -950,6 +1118,167 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
         </div>
       </div>
 
+      {/* Formatting controls strip (visible when WYSIWYG mode is active) */}
+      {isWysiwyg && !isTrashed && (
+        <div
+          className="wysiwyg-toolbar"
+          style={{
+            background: C.surface2,
+            borderBottom: `1px solid ${C.border}`,
+            color: C.text,
+          }}
+        >
+          {/* Headings / Block format */}
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); execFormat("formatBlock", "<p>"); }}
+            className="wysiwyg-btn"
+            title="Normal text (Paragraph)"
+            style={{ color: C.text }}
+          >
+            P
+          </button>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); execFormat("formatBlock", "<h1>"); }}
+            className="wysiwyg-btn"
+            title="Heading 1"
+            style={{ color: C.text, fontWeight: 700 }}
+          >
+            H1
+          </button>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); execFormat("formatBlock", "<h2>"); }}
+            className="wysiwyg-btn"
+            title="Heading 2"
+            style={{ color: C.text, fontWeight: 700 }}
+          >
+            H2
+          </button>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); execFormat("formatBlock", "<h3>"); }}
+            className="wysiwyg-btn"
+            title="Heading 3"
+            style={{ color: C.text, fontWeight: 700 }}
+          >
+            H3
+          </button>
+
+          <span style={{ width: 1, height: 16, background: C.border, margin: "0 3px", flexShrink: 0 }} />
+
+          {/* Text Styling */}
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); execFormat("bold"); }}
+            className="wysiwyg-btn"
+            title="Bold (Ctrl+B)"
+            style={{ color: C.text, fontWeight: 800, width: 26 }}
+          >
+            B
+          </button>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); execFormat("italic"); }}
+            className="wysiwyg-btn"
+            title="Italic (Ctrl+I)"
+            style={{ color: C.text, fontStyle: "italic", width: 26 }}
+          >
+            I
+          </button>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); execFormat("underline"); }}
+            className="wysiwyg-btn"
+            title="Underline (Ctrl+U)"
+            style={{ color: C.text, textDecoration: "underline", width: 26 }}
+          >
+            U
+          </button>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); execFormat("strikeThrough"); }}
+            className="wysiwyg-btn"
+            title="Strikethrough"
+            style={{ color: C.text, textDecoration: "line-through", width: 26 }}
+          >
+            S
+          </button>
+
+          <span style={{ width: 1, height: 16, background: C.border, margin: "0 3px", flexShrink: 0 }} />
+
+          {/* Lists & Quotes */}
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); execFormat("insertUnorderedList"); }}
+            className="wysiwyg-btn"
+            title="Bullet List"
+            style={{ color: C.text }}
+          >
+            • List
+          </button>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); execFormat("insertOrderedList"); }}
+            className="wysiwyg-btn"
+            title="Numbered List"
+            style={{ color: C.text }}
+          >
+            1. List
+          </button>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); execFormat("formatBlock", "<blockquote>"); }}
+            className="wysiwyg-btn"
+            title="Blockquote"
+            style={{ color: C.text }}
+          >
+            ❝ Quote
+          </button>
+
+          <span style={{ width: 1, height: 16, background: C.border, margin: "0 3px", flexShrink: 0 }} />
+
+          {/* Code & Horizontal Divider */}
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); formatInlineCode(); }}
+            className="wysiwyg-btn"
+            title="Inline Code (`code`)"
+            style={{ color: C.text, fontFamily: mono, fontSize: 11 }}
+          >
+            `Code`
+          </button>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); execFormat("formatBlock", "<pre>"); }}
+            className="wysiwyg-btn"
+            title="Code Block"
+            style={{ color: C.text, fontFamily: mono, fontSize: 11 }}
+          >
+            &lt;/&gt; Block
+          </button>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); execFormat("insertHorizontalRule"); }}
+            className="wysiwyg-btn"
+            title="Horizontal Divider"
+            style={{ color: C.text }}
+          >
+            ― Line
+          </button>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); execFormat("removeFormat"); }}
+            className="wysiwyg-btn"
+            title="Clear Formatting"
+            style={{ color: C.dim, fontSize: 11 }}
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {showShare && (
         <ShareModal
           note={note}
@@ -962,26 +1291,47 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
       )}
 
       <div className="editor-body">
-        <div className="editor-text-wrap">
-          <EditorBackdrop text={localText} C={C} backdropRef={backdropRef} />
-          <textarea
-            ref={editorRef}
-            value={localText}
-            onChange={handleTextChange}
-            onClick={handleLinkClick}
-            onScroll={syncBackdropScroll}
-            placeholder={isTrashed ? "This prompt is in trash." : "Write your prompt here…\n\nPaste image: Ctrl+V / Cmd+V\nOr click 'Image' to attach from file"}
-            spellCheck={false}
-            readOnly={isTrashed}
+        {isWysiwyg ? (
+          <div
+            ref={wysiwygRef}
+            contentEditable={!isTrashed}
+            suppressContentEditableWarning
+            onInput={handleWysiwygInput}
+            onClick={handleWysiwygClick}
+            data-placeholder={isTrashed ? "This prompt is in trash." : "Write your formatted prompt here…\nUse the toolbar above or shortcuts like Ctrl+B, Ctrl+I, Ctrl+U"}
+            className="wysiwyg-content"
             style={{
-              position: "relative", zIndex: 1,
-              width: "100%", height: "100%",
-              background: "transparent", border: "none", outline: "none", resize: "none",
-              color: "transparent", caretColor: isTrashed ? "transparent" : C.text,
-              fontFamily: mono, fontSize: 15, lineHeight: 1.85, padding: "22px",
+              fontFamily: mono,
+              fontSize: 15,
+              lineHeight: 1.85,
+              color: C.text,
+              caretColor: isTrashed ? "transparent" : C.text,
+              background: "transparent",
+              cursor: isTrashed ? "default" : "text",
             }}
           />
-        </div>
+        ) : (
+          <div className="editor-text-wrap">
+            <EditorBackdrop text={localText} C={C} backdropRef={backdropRef} />
+            <textarea
+              ref={editorRef}
+              value={localText}
+              onChange={handleTextChange}
+              onClick={handleLinkClick}
+              onScroll={syncBackdropScroll}
+              placeholder={isTrashed ? "This prompt is in trash." : "Write your prompt here…\n\nPaste image: Ctrl+V / Cmd+V\nOr click 'Image' to attach from file"}
+              spellCheck={false}
+              readOnly={isTrashed}
+              style={{
+                position: "relative", zIndex: 1,
+                width: "100%", height: "100%",
+                background: "transparent", border: "none", outline: "none", resize: "none",
+                color: "transparent", caretColor: isTrashed ? "transparent" : C.text,
+                fontFamily: mono, fontSize: 15, lineHeight: 1.85, padding: "22px",
+              }}
+            />
+          </div>
+        )}
 
         {note.images?.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: "0 22px 14px" }}>
@@ -1040,9 +1390,25 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
           </div>
         )}
 
-        <div style={{ padding: "8px 22px", borderTop: `1px solid ${C.border}`, color: C.muted, fontSize: 12, display: "flex", justifyContent: "space-between", flexShrink: 0 }}>
-          <span>{isTrashed ? "Trash mode · Read-only" : "Ctrl+Click links · Ctrl+V paste image · File attaches .md/.csv/.pdf"}</span>
-          <span>{localText.length} chars</span>
+        <div style={{ padding: "8px 22px", borderTop: `1px solid ${C.border}`, color: C.muted, fontSize: 12, display: "flex", justifyContent: "space-between", flexShrink: 0, alignItems: "center" }}>
+          <span>
+            {isTrashed
+              ? "Trash mode · Read-only"
+              : isWysiwyg
+                ? "Rich Text mode · Formatting toolbar active · Ctrl+B, Ctrl+I, Ctrl+U"
+                : "Plain Text mode · Ctrl+Click links · Ctrl+V paste image"}
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <span style={{
+              display: "inline-block",
+              width: 7, height: 7,
+              borderRadius: "50%",
+              background: isWysiwyg ? C.accent : C.dim,
+            }} />
+            <span>{isWysiwyg ? "Rich Text" : "Plain"}</span>
+            <span>·</span>
+            <span>{localText.length} chars</span>
+          </span>
         </div>
       </div>
     </>

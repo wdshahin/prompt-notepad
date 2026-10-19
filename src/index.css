@@ -211,3 +211,128 @@ textarea, input { transition: none !important; }
 @media (max-width: 400px) {
   .sidebar { width: 100%; }
 }
+
+/* ── WYSIWYG Formatted Editor ──────────────────────────────── */
+.wysiwyg-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  flex-shrink: 0;
+}
+.wysiwyg-toolbar::-webkit-scrollbar {
+  height: 3px;
+}
+.wysiwyg-toolbar::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.3);
+  border-radius: 3px;
+}
+.wysiwyg-content {
+  outline: none;
+  overflow-y: auto;
+  line-height: 1.85;
+  word-break: break-word;
+  padding: 22px;
+  min-height: 100%;
+  flex: 1;
+}
+.wysiwyg-content:empty::before {
+  content: attr(data-placeholder);
+  color: #777;
+  pointer-events: none;
+  display: block;
+}
+.wysiwyg-content h1 {
+  font-size: 1.85em;
+  font-weight: 700;
+  margin: 0.8em 0 0.4em;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+  padding-bottom: 0.25em;
+}
+.wysiwyg-content h2 {
+  font-size: 1.45em;
+  font-weight: 700;
+  margin: 0.7em 0 0.3em;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+  padding-bottom: 0.2em;
+}
+.wysiwyg-content h3 {
+  font-size: 1.2em;
+  font-weight: 600;
+  margin: 0.6em 0 0.25em;
+}
+.wysiwyg-content p {
+  margin: 0.5em 0;
+}
+.wysiwyg-content ul, .wysiwyg-content ol {
+  margin: 0.5em 0;
+  padding-left: 28px;
+}
+.wysiwyg-content li {
+  margin: 0.25em 0;
+}
+.wysiwyg-content blockquote {
+  border-left: 3px solid currentColor;
+  margin: 0.8em 0;
+  padding: 6px 16px;
+  opacity: 0.9;
+  background: rgba(128, 128, 128, 0.08);
+  border-radius: 0 4px 4px 0;
+}
+.wysiwyg-content pre {
+  background: rgba(128, 128, 128, 0.12);
+  border: 1px solid rgba(128, 128, 128, 0.25);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin: 0.8em 0;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13.5px;
+}
+.wysiwyg-content code {
+  background: rgba(128, 128, 128, 0.14);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+.wysiwyg-content pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 1em;
+}
+.wysiwyg-content hr {
+  border: none;
+  border-top: 1px solid rgba(128, 128, 128, 0.25);
+  margin: 1.4em 0;
+}
+.wysiwyg-content a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.wysiwyg-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.wysiwyg-btn:hover {
+  background: rgba(128, 128, 128, 0.18);
+}
+.wysiwyg-btn:active {
+  transform: scale(0.96);
+}
