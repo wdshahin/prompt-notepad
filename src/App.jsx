@@ -1742,7 +1742,7 @@ function triggerDownload(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
-function exportAllJson(notesList, userEmail, showToast) {
+function exportAllJson(notesList, userEmail, showToast, includeBase64 = false) {
   if (!notesList || notesList.length === 0) {
     showToast("No prompts to export", "warn");
     return;
@@ -1754,29 +1754,54 @@ function exportAllJson(notesList, userEmail, showToast) {
       exportedAt: new Date().toISOString(),
       user: userEmail || "anonymous",
       totalNotes: notesList.length,
-      notes: notesList.map(n => ({
-        id: n.id,
-        title: n.title || "Untitled Prompt",
-        text: n.text || "",
-        isRich: !!n.isRich,
-        tags: {
-          important: !!n.important,
-          personal: !!n.personal,
-          client: !!n.client,
-        },
-        deleted: !!n.deleted,
-        shareId: n.shareId || null,
-        createdAt: n.createdAt ? new Date(n.createdAt).toISOString() : null,
-        updatedAt: n.updatedAt ? new Date(n.updatedAt).toISOString() : null,
-        images: n.images || [],
-        files: (n.files || []).map(f => ({
-          id: f.id,
-          name: f.name,
-          type: f.type,
-          size: f.size,
-          dataUrl: f.dataUrl,
-        })),
-      })),
+      notes: notesList.map(n => {
+        let plainContent = n.text || "";
+        if (/^\s*<[a-z][\s\S]*>/i.test(plainContent)) {
+          try {
+            plainContent = turndownService.turndown(plainContent);
+          } catch {
+            plainContent = plainContent.replace(/<[^>]+>/g, "");
+          }
+        }
+
+        return {
+          title: n.title || "Untitled Prompt",
+          text: plainContent,
+          rawHtml: n.text && /^\s*<[a-z][\s\S]*>/i.test(n.text) ? n.text : undefined,
+          tags: {
+            important: !!n.important,
+            personal: !!n.personal,
+            client: !!n.client,
+          },
+          status: n.deleted ? "trash" : "active",
+          createdAt: n.createdAt ? new Date(n.createdAt).toISOString() : null,
+          updatedAt: n.updatedAt ? new Date(n.updatedAt).toISOString() : null,
+          id: n.id,
+          shareId: n.shareId || null,
+          images: (n.images || []).map((img, i) => {
+            if (includeBase64) {
+              return { id: img.id, dataUrl: img.dataUrl };
+            }
+            return {
+              id: img.id,
+              name: `image-${i + 1}`,
+              note: "Base64 image data excluded for clean text readability. Toggle 'Include base64' in export options if needed."
+            };
+          }),
+          files: (n.files || []).map(f => {
+            if (includeBase64) {
+              return { id: f.id, name: f.name, type: f.type, size: f.size, dataUrl: f.dataUrl };
+            }
+            return {
+              id: f.id,
+              name: f.name,
+              type: f.type,
+              size: f.size,
+              sizeFormatted: formatSize(f.size || 0)
+            };
+          }),
+        };
+      }),
     };
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], {
@@ -1861,6 +1886,80 @@ function exportAllMarkdown(notesList, userEmail, showToast) {
   }
 }
 
+function exportAllHtml(notesList, userEmail, showToast) {
+  if (!notesList || notesList.length === 0) {
+    showToast("No prompts to export", "warn");
+    return;
+  }
+  try {
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const escapeHtml = str => String(str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    let html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prompt Notepad Export - ${dateStr}</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; max-width: 860px; margin: 40px auto; padding: 0 20px; background: #0f0f0f; color: #e0e0e0; line-height: 1.7; }
+  h1 { color: #c8ff57; border-bottom: 2px solid #242424; padding-bottom: 12px; }
+  .meta-top { color: #888; font-size: 13px; margin-bottom: 30px; }
+  .note-card { background: #141414; border: 1px solid #242424; border-radius: 8px; padding: 20px 24px; margin-bottom: 24px; }
+  .note-title { font-size: 19px; font-weight: 700; color: #fff; margin: 0 0 8px 0; }
+  .note-meta { font-size: 12px; color: #888; margin-bottom: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .tag { background: #222; border-radius: 3px; padding: 2px 7px; color: #c8ff57; font-size: 11px; }
+  .note-body { white-space: pre-wrap; font-family: inherit; font-size: 14px; word-break: break-word; }
+  .files-list { margin-top: 14px; padding-top: 12px; border-top: 1px solid #242424; font-size: 12px; color: #aaa; }
+</style>
+</head>
+<body>
+<h1>⌘ Prompt Notepad Export</h1>
+<div class="meta-top">
+  Exported on ${new Date().toLocaleString()} ${userEmail ? `• Account: ${escapeHtml(userEmail)}` : ""} • Total: ${notesList.length} prompts
+</div>
+`;
+
+    notesList.forEach((n, idx) => {
+      const title = (n.title || "Untitled Prompt").trim();
+      const tags = [];
+      if (n.important) tags.push("Important");
+      if (n.personal) tags.push("Personal");
+      if (n.client) tags.push("Client");
+      if (n.deleted) tags.push("Trash");
+
+      const created = n.createdAt ? new Date(n.createdAt).toLocaleString() : "";
+      let body = n.text || "";
+      if (/^\s*<[a-z][\s\S]*>/i.test(body)) {
+        try {
+          body = turndownService.turndown(body);
+        } catch {
+          body = body.replace(/<[^>]+>/g, "");
+        }
+      }
+
+      html += `<div class="note-card">
+  <div class="note-title">${idx + 1}. ${escapeHtml(title)}</div>
+  <div class="note-meta">
+    <span>Created: ${escapeHtml(created)}</span>
+    ${tags.map(t => `<span class="tag">${t}</span>`).join(" ")}
+  </div>
+  <div class="note-body">${escapeHtml(body)}</div>
+  ${n.files && n.files.length ? `<div class="files-list"><b>Files:</b> ${n.files.map(f => escapeHtml(f.name)).join(", ")}</div>` : ""}
+</div>\n`;
+    });
+
+    html += `</body></html>`;
+
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    triggerDownload(blob, `prompt-notepad-export-${dateStr}.html`);
+    showToast(`Exported ${notesList.length} prompt${notesList.length === 1 ? "" : "s"} to HTML ✓`, "success");
+  } catch (err) {
+    console.error("Export HTML failed:", err);
+    showToast("Failed to export HTML", "error");
+  }
+}
+
 function exportAllCsv(notesList, userEmail, showToast) {
   if (!notesList || notesList.length === 0) {
     showToast("No prompts to export", "warn");
@@ -1911,6 +2010,7 @@ function exportAllCsv(notesList, userEmail, showToast) {
 
 function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
   const [includeTrash, setIncludeTrash] = useState(false);
+  const [includeBase64, setIncludeBase64] = useState(false);
 
   const activeNotes = useMemo(() => notes.filter(n => !n.deleted), [notes]);
   const notesToExport = useMemo(() => {
@@ -1941,7 +2041,7 @@ function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
           border: `1px solid ${C.border}`,
           borderRadius: 10,
           padding: "24px 24px 22px",
-          width: 520,
+          width: 540,
           maxWidth: "100%",
           fontFamily: mono,
           boxShadow: "0 16px 64px rgba(0,0,0,0.6)",
@@ -1970,45 +2070,71 @@ function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
           </button>
         </div>
 
-        <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.6, marginBottom: 16 }}>
-          Download an archive of all your prompts and notes ({notesToExport.length} prompt{notesToExport.length === 1 ? "" : "s"} selected). Choose your preferred export format below:
+        <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.6, marginBottom: 14 }}>
+          Exporting <b>{notesToExport.length} prompt{notesToExport.length === 1 ? "" : "s"}</b>. Select the format that best fits what you want to do:
         </div>
 
-        {trashCount > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
+          {trashCount > 0 && (
+            <label
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 7,
+                fontSize: 11,
+                color: C.text,
+                cursor: "pointer",
+                padding: "5px 10px",
+                background: C.surface2,
+                borderRadius: 5,
+                border: `1px solid ${C.border}`,
+                userSelect: "none",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={includeTrash}
+                onChange={e => setIncludeTrash(e.target.checked)}
+                style={{ accentColor: C.accent, cursor: "pointer" }}
+              />
+              Include trashed prompts ({trashCount})
+            </label>
+          )}
+
           <label
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: 8,
-              fontSize: 12,
+              gap: 7,
+              fontSize: 11,
               color: C.text,
               cursor: "pointer",
-              marginBottom: 16,
-              padding: "6px 12px",
+              padding: "5px 10px",
               background: C.surface2,
               borderRadius: 5,
               border: `1px solid ${C.border}`,
               userSelect: "none",
             }}
+            title="When unchecked, JSON is clean and easy to read. Check this only if you need full raw image base64 data for programmatic restore."
           >
             <input
               type="checkbox"
-              checked={includeTrash}
-              onChange={e => setIncludeTrash(e.target.checked)}
+              checked={includeBase64}
+              onChange={e => setIncludeBase64(e.target.checked)}
               style={{ accentColor: C.accent, cursor: "pointer" }}
             />
-            Include trashed prompts ({trashCount})
+            Include raw image data (large base64)
           </label>
-        )}
+        </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 6 }}>
-          {/* Format 1: JSON */}
+          {/* Format 1: Markdown (Primary & Recommended for text editors) */}
           <div
             style={{
-              background: C.surface2,
-              border: `1px solid ${C.border}`,
+              background: `${C.accent}0d`,
+              border: `1px solid ${C.accent}44`,
               borderRadius: 8,
-              padding: "14px 16px",
+              padding: "13px 15px",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
@@ -2016,16 +2142,17 @@ function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 4 }}>
-                <span style={{ color: C.accent, fontSize: 13, fontWeight: 800 }}>&#123; &#125;</span> JSON Backup (.json)
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 3 }}>
+                <span style={{ color: theme === "light" ? "#3b730e" : C.accent, fontSize: 13, fontWeight: 800 }}>M↓</span> Markdown Archive (.md)
+                <span style={{ background: `${C.accent}25`, color: theme === "light" ? "#3b730e" : C.accent, fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3 }}>Recommended for text reading</span>
               </div>
               <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.4 }}>
-                Lossless structured data backup including all metadata, tags, images, attachments, and timestamps.
+                Clean, readable text document. Opens cleanly in Sublime Text, Notepad, VS Code, and Obsidian.
               </div>
             </div>
             <button
               onClick={() => {
-                exportAllJson(notesToExport, userEmail, showToast);
+                exportAllMarkdown(notesToExport, userEmail, showToast);
                 onClose();
               }}
               style={{
@@ -2044,17 +2171,17 @@ function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
                 flexShrink: 0,
               }}
             >
-              <IconDownload size={13} color={C.accentFg} /> Download .json
+              <IconDownload size={13} color={C.accentFg} /> Download .md
             </button>
           </div>
 
-          {/* Format 2: Markdown */}
+          {/* Format 2: JSON Backup */}
           <div
             style={{
               background: C.surface2,
               border: `1px solid ${C.border}`,
               borderRadius: 8,
-              padding: "14px 16px",
+              padding: "13px 15px",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
@@ -2062,16 +2189,18 @@ function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 4 }}>
-                <span style={{ color: theme === "light" ? "#3b730e" : C.accent, fontSize: 13, fontWeight: 800 }}>M↓</span> Markdown Archive (.md)
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 3 }}>
+                <span style={{ color: C.accent, fontSize: 13, fontWeight: 800 }}>&#123; &#125;</span> Clean JSON Backup (.json)
               </div>
               <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.4 }}>
-                Clean, human-readable document. Compatible with Obsidian, Notion, Bear, and GitHub.
+                {includeBase64
+                  ? "Full backup including raw base64 images (large file)."
+                  : "Clean structured data with titles, notes, tags, and dates (no raw binary clutter)."}
               </div>
             </div>
             <button
               onClick={() => {
-                exportAllMarkdown(notesToExport, userEmail, showToast);
+                exportAllJson(notesToExport, userEmail, showToast, includeBase64);
                 onClose();
               }}
               style={{
@@ -2090,17 +2219,17 @@ function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
                 flexShrink: 0,
               }}
             >
-              <IconDownload size={13} color={theme === "light" ? "#3b730e" : C.accent} /> Download .md
+              <IconDownload size={13} color={theme === "light" ? "#3b730e" : C.accent} /> Download .json
             </button>
           </div>
 
-          {/* Format 3: CSV (bonus) */}
+          {/* Format 3: HTML Webpage */}
           <div
             style={{
               background: C.surface2,
               border: `1px solid ${C.border}`,
               borderRadius: 8,
-              padding: "14px 16px",
+              padding: "13px 15px",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
@@ -2108,11 +2237,57 @@ function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 4 }}>
-                <span style={{ color: C.user, fontSize: 13, fontWeight: 800 }}>⊞</span> CSV Spreadsheet (.csv)
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 3 }}>
+                <span style={{ color: C.user, fontSize: 13, fontWeight: 800 }}>&lt;&gt;</span> HTML Webpage (.html)
               </div>
               <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.4 }}>
-                Tabular format with prompts, titles, tags, and dates for Excel or Google Sheets.
+                Self-contained page with dark styling. Double-click to view all your notes in Chrome or Edge.
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                exportAllHtml(notesToExport, userEmail, showToast);
+                onClose();
+              }}
+              style={{
+                background: "transparent",
+                color: C.user,
+                border: `1px solid ${C.user}88`,
+                borderRadius: 5,
+                padding: "8px 14px",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: mono,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                flexShrink: 0,
+              }}
+            >
+              <IconDownload size={13} color={C.user} /> Download .html
+            </button>
+          </div>
+
+          {/* Format 4: CSV Spreadsheet */}
+          <div
+            style={{
+              background: C.surface2,
+              border: `1px solid ${C.border}`,
+              borderRadius: 8,
+              padding: "13px 15px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 3 }}>
+                <span style={{ color: C.dim, fontSize: 13, fontWeight: 800 }}>⊞</span> CSV Spreadsheet (.csv)
+              </div>
+              <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.4 }}>
+                Tabular format with titles, notes, tags, and dates for Excel or Google Sheets.
               </div>
             </div>
             <button
