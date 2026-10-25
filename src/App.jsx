@@ -1893,6 +1893,7 @@ function exportAllHtml(notesList, userEmail, showToast) {
   }
   try {
     const dateStr = new Date().toISOString().slice(0, 10);
+    const ONE_MB = 1024 * 1024;
     const escapeHtml = str => String(str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
     let html = `<!DOCTYPE html>
@@ -1902,21 +1903,21 @@ function exportAllHtml(notesList, userEmail, showToast) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Prompt Notepad Export - ${dateStr}</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; max-width: 860px; margin: 40px auto; padding: 0 20px; background: #0f0f0f; color: #e0e0e0; line-height: 1.7; }
-  h1 { color: #c8ff57; border-bottom: 2px solid #242424; padding-bottom: 12px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "JetBrains Mono", monospace; max-width: 900px; margin: 40px auto; padding: 0 20px; background: #0f0f0f; color: #e0e0e0; line-height: 1.7; }
+  h1 { color: #c8ff57; border-bottom: 2px solid #242424; padding-bottom: 12px; font-size: 24px; }
   .meta-top { color: #888; font-size: 13px; margin-bottom: 30px; }
-  .note-card { background: #141414; border: 1px solid #242424; border-radius: 8px; padding: 20px 24px; margin-bottom: 24px; }
-  .note-title { font-size: 19px; font-weight: 700; color: #fff; margin: 0 0 8px 0; }
-  .note-meta { font-size: 12px; color: #888; margin-bottom: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
-  .tag { background: #222; border-radius: 3px; padding: 2px 7px; color: #c8ff57; font-size: 11px; }
-  .note-body { white-space: pre-wrap; font-family: inherit; font-size: 14px; word-break: break-word; }
-  .files-list { margin-top: 14px; padding-top: 12px; border-top: 1px solid #242424; font-size: 12px; color: #aaa; }
+  .note-card { background: #141414; border: 1px solid #242424; border-radius: 8px; padding: 22px 26px; margin-bottom: 26px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+  .note-title { font-size: 20px; font-weight: 700; color: #fff; margin: 0 0 8px 0; }
+  .note-meta { font-size: 12px; color: #888; margin-bottom: 16px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .tag { background: #222; border-radius: 3px; padding: 2px 7px; color: #c8ff57; font-size: 11px; font-weight: 600; }
+  .note-body { white-space: pre-wrap; font-family: inherit; font-size: 14px; word-break: break-word; color: #e4e4e4; }
+  .files-container a:hover { filter: brightness(1.2); }
 </style>
 </head>
 <body>
 <h1>⌘ Prompt Notepad Export</h1>
 <div class="meta-top">
-  Exported on ${new Date().toLocaleString()} ${userEmail ? `• Account: ${escapeHtml(userEmail)}` : ""} • Total: ${notesList.length} prompts
+  Exported on ${new Date().toLocaleString()} ${userEmail ? `• Account: ${escapeHtml(userEmail)}` : ""} • Total: ${notesList.length} prompts • Attachments under 1 MB embedded
 </div>
 `;
 
@@ -1938,6 +1939,49 @@ function exportAllHtml(notesList, userEmail, showToast) {
         }
       }
 
+      // Embed images that are under 1 MB
+      let imagesHtml = "";
+      if (n.images && n.images.length > 0) {
+        imagesHtml = `<div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid #242424;">
+          <div style="font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; margin-bottom: 8px;">Attached Images (${n.images.length})</div>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            ${n.images.map((img, i) => {
+              const size = estimateBytesFast(img.dataUrl || "");
+              if (size < ONE_MB && img.dataUrl) {
+                return `<div style="border: 1px solid #282828; border-radius: 6px; overflow: hidden; background: #0a0a0a; padding: 6px;">
+                  <img src="${img.dataUrl}" alt="Attachment ${i + 1}" style="max-width: 100%; max-height: 480px; display: block; border-radius: 4px; object-fit: contain; margin: 0 auto;" />
+                  <div style="font-size: 10px; color: #777; margin-top: 4px; text-align: right;">Image ${i + 1} (${formatSize(size)})</div>
+                </div>`;
+              }
+              return `<div style="padding: 8px 12px; background: #1a1a1a; border: 1px solid #282828; border-radius: 5px; font-size: 11px; color: #888;">
+                🖼 Image ${i + 1} (${formatSize(size)}) — Omitted (exceeds 1 MB limit)
+              </div>`;
+            }).join("")}
+          </div>
+        </div>`;
+      }
+
+      // Embed files that are under 1 MB with clickable offline download
+      let filesHtml = "";
+      if (n.files && n.files.length > 0) {
+        filesHtml = `<div class="files-container" style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #242424;">
+          <div style="font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; margin-bottom: 8px;">Attached Files (${n.files.length})</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            ${n.files.map(f => {
+              const size = f.size || 0;
+              if (size < ONE_MB && f.dataUrl) {
+                return `<a href="${f.dataUrl}" download="${escapeHtml(f.name)}" style="display: inline-flex; align-items: center; gap: 6px; background: #1c2612; border: 1px solid #3b730e; color: #c8ff57; padding: 6px 12px; border-radius: 5px; font-size: 12px; text-decoration: none; font-weight: 600;">
+                  ⬇ Download ${escapeHtml(f.name)} (${formatSize(size)})
+                </a>`;
+              }
+              return `<span style="display: inline-flex; align-items: center; gap: 6px; background: #181818; border: 1px solid #282828; color: #777; padding: 6px 12px; border-radius: 5px; font-size: 12px;">
+                📎 ${escapeHtml(f.name)} (${formatSize(size)}) — (exceeds 1 MB, not embedded)
+              </span>`;
+            }).join("")}
+          </div>
+        </div>`;
+      }
+
       html += `<div class="note-card">
   <div class="note-title">${idx + 1}. ${escapeHtml(title)}</div>
   <div class="note-meta">
@@ -1945,7 +1989,8 @@ function exportAllHtml(notesList, userEmail, showToast) {
     ${tags.map(t => `<span class="tag">${t}</span>`).join(" ")}
   </div>
   <div class="note-body">${escapeHtml(body)}</div>
-  ${n.files && n.files.length ? `<div class="files-list"><b>Files:</b> ${n.files.map(f => escapeHtml(f.name)).join(", ")}</div>` : ""}
+  ${imagesHtml}
+  ${filesHtml}
 </div>\n`;
     });
 
@@ -1957,54 +2002,6 @@ function exportAllHtml(notesList, userEmail, showToast) {
   } catch (err) {
     console.error("Export HTML failed:", err);
     showToast("Failed to export HTML", "error");
-  }
-}
-
-function exportAllCsv(notesList, userEmail, showToast) {
-  if (!notesList || notesList.length === 0) {
-    showToast("No prompts to export", "warn");
-    return;
-  }
-  try {
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const headers = ["ID", "Title", "Content", "Tags", "Status", "Created At", "Updated At", "Images Count", "Files Count"];
-    
-    const escapeCsv = (str) => {
-      if (str == null) return '""';
-      const s = String(str).replace(/"/g, '""');
-      return `"${s}"`;
-    };
-
-    const rows = notesList.map(n => {
-      let plain = n.text || "";
-      if (/^\s*<[a-z][\s\S]*>/i.test(plain)) {
-        plain = plain.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-      }
-      const tags = [];
-      if (n.important) tags.push("Important");
-      if (n.personal) tags.push("Personal");
-      if (n.client) tags.push("Client");
-
-      return [
-        escapeCsv(n.id),
-        escapeCsv(n.title || "Untitled Prompt"),
-        escapeCsv(plain),
-        escapeCsv(tags.join(", ")),
-        escapeCsv(n.deleted ? "Trash" : "Active"),
-        escapeCsv(n.createdAt ? new Date(n.createdAt).toISOString() : ""),
-        escapeCsv(n.updatedAt ? new Date(n.updatedAt).toISOString() : ""),
-        escapeCsv(n.images?.length || 0),
-        escapeCsv(n.files?.length || 0),
-      ].join(",");
-    });
-
-    const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
-    triggerDownload(blob, `prompt-notepad-export-${dateStr}.csv`);
-    showToast(`Exported ${notesList.length} prompt${notesList.length === 1 ? "" : "s"} to CSV ✓`, "success");
-  } catch (err) {
-    console.error("Export CSV failed:", err);
-    showToast("Failed to export CSV", "error");
   }
 }
 
@@ -2071,7 +2068,7 @@ function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
         </div>
 
         <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.6, marginBottom: 14 }}>
-          Exporting <b>{notesToExport.length} prompt{notesToExport.length === 1 ? "" : "s"}</b>. Select the format that best fits what you want to do:
+          Exporting <b>{notesToExport.length} prompt{notesToExport.length === 1 ? "" : "s"}</b>. Select the format you need:
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
@@ -2115,7 +2112,7 @@ function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
               border: `1px solid ${C.border}`,
               userSelect: "none",
             }}
-            title="When unchecked, JSON is clean and easy to read. Check this only if you need full raw image base64 data for programmatic restore."
+            title="When unchecked, JSON is clean and human-readable without raw image base64 blocks."
           >
             <input
               type="checkbox"
@@ -2123,12 +2120,12 @@ function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
               onChange={e => setIncludeBase64(e.target.checked)}
               style={{ accentColor: C.accent, cursor: "pointer" }}
             />
-            Include raw image data (large base64)
+            Include image data in JSON (base64)
           </label>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 6 }}>
-          {/* Format 1: Markdown (Primary & Recommended for text editors) */}
+          {/* Format 1: Markdown (.md) */}
           <div
             style={{
               background: `${C.accent}0d`,
@@ -2144,10 +2141,10 @@ function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 3 }}>
                 <span style={{ color: theme === "light" ? "#3b730e" : C.accent, fontSize: 13, fontWeight: 800 }}>M↓</span> Markdown Archive (.md)
-                <span style={{ background: `${C.accent}25`, color: theme === "light" ? "#3b730e" : C.accent, fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3 }}>Recommended for text reading</span>
+                <span style={{ background: `${C.accent}25`, color: theme === "light" ? "#3b730e" : C.accent, fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3 }}>Recommended</span>
               </div>
               <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.4 }}>
-                Clean, readable text document. Opens cleanly in Sublime Text, Notepad, VS Code, and Obsidian.
+                Clean, readable text document. Opens cleanly in Sublime Text, Notepad, VS Code, and Obsidian without any binary clutter.
               </div>
             </div>
             <button
@@ -2175,7 +2172,7 @@ function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
             </button>
           </div>
 
-          {/* Format 2: JSON Backup */}
+          {/* Format 2: JSON Backup (.json) */}
           <div
             style={{
               background: C.surface2,
@@ -2190,12 +2187,10 @@ function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
           >
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 3 }}>
-                <span style={{ color: C.accent, fontSize: 13, fontWeight: 800 }}>&#123; &#125;</span> Clean JSON Backup (.json)
+                <span style={{ color: C.accent, fontSize: 13, fontWeight: 800 }}>&#123; &#125;</span> JSON Backup (.json)
               </div>
               <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.4 }}>
-                {includeBase64
-                  ? "Full backup including raw base64 images (large file)."
-                  : "Clean structured data with titles, notes, tags, and dates (no raw binary clutter)."}
+                Structured JSON data with titles, notes, tags, and dates. Clean and readable.
               </div>
             </div>
             <button
@@ -2223,7 +2218,7 @@ function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
             </button>
           </div>
 
-          {/* Format 3: HTML Webpage */}
+          {/* Format 3: HTML Webpage (.html) with attachments < 1MB */}
           <div
             style={{
               background: C.surface2,
@@ -2239,9 +2234,10 @@ function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 3 }}>
                 <span style={{ color: C.user, fontSize: 13, fontWeight: 800 }}>&lt;&gt;</span> HTML Webpage (.html)
+                <span style={{ background: `${C.user}25`, color: C.user, fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3 }}>Attachments &lt; 1 MB</span>
               </div>
               <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.4 }}>
-                Self-contained page with dark styling. Double-click to view all your notes in Chrome or Edge.
+                Interactive page. Displays notes, embedded images, and clickable downloads for attachments under 1 MB. Opens in any browser.
               </div>
             </div>
             <button
@@ -2266,52 +2262,6 @@ function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
               }}
             >
               <IconDownload size={13} color={C.user} /> Download .html
-            </button>
-          </div>
-
-          {/* Format 4: CSV Spreadsheet */}
-          <div
-            style={{
-              background: C.surface2,
-              border: `1px solid ${C.border}`,
-              borderRadius: 8,
-              padding: "13px 15px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-            }}
-          >
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 3 }}>
-                <span style={{ color: C.dim, fontSize: 13, fontWeight: 800 }}>⊞</span> CSV Spreadsheet (.csv)
-              </div>
-              <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.4 }}>
-                Tabular format with titles, notes, tags, and dates for Excel or Google Sheets.
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                exportAllCsv(notesToExport, userEmail, showToast);
-                onClose();
-              }}
-              style={{
-                background: "transparent",
-                color: C.text,
-                border: `1px solid ${C.border}`,
-                borderRadius: 5,
-                padding: "8px 14px",
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: "pointer",
-                fontFamily: mono,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                flexShrink: 0,
-              }}
-            >
-              <IconDownload size={13} color={C.text} /> Download .csv
             </button>
           </div>
         </div>
