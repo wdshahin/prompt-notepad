@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { marked } from "marked";
+import TurndownService from "turndown";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
@@ -15,6 +16,12 @@ const MAX_DOC_SIZE = 5 * 1024 * 1024; // 5 MB
 marked.setOptions({
   breaks: true,
   gfm: true,
+});
+
+const turndownService = new TurndownService({
+  headingStyle: "atx",
+  codeBlockStyle: "fenced",
+  bulletListMarker: "-",
 });
 
 // WordPress Classic Editor-style HTML code formatter (keeps code format in Plain Text)
@@ -197,6 +204,148 @@ const IconShare = memo(function IconShare({ size = 12, color = "currentColor" })
       <circle cx="18" cy="19" r="3" />
       <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
       <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+    </svg>
+  );
+});
+
+const IconDownload = memo(function IconDownload({ size = 14, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+});
+
+// ─── WYSIWYG Editor Toolbar Icons ────────────────────────────
+const IconBold = memo(function IconBold({ size = 13, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
+      <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
+    </svg>
+  );
+});
+
+const IconItalic = memo(function IconItalic({ size = 13, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <line x1="19" y1="4" x2="10" y2="4" />
+      <line x1="14" y1="20" x2="5" y2="20" />
+      <line x1="15" y1="4" x2="9" y2="20" />
+    </svg>
+  );
+});
+
+const IconUnderline = memo(function IconUnderline({ size = 13, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <path d="M6 3v7a6 6 0 0 0 12 0V3" />
+      <line x1="4" y1="21" x2="20" y2="21" />
+    </svg>
+  );
+});
+
+const IconStrike = memo(function IconStrike({ size = 13, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <path d="M16 4H9a3 3 0 0 0-2.83 4M14 12a4 4 0 0 1 0 8H6" />
+      <line x1="4" y1="12" x2="20" y2="12" strokeWidth="2.4" />
+    </svg>
+  );
+});
+
+const IconListUl = memo(function IconListUl({ size = 13, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <line x1="9" y1="6" x2="20" y2="6" />
+      <line x1="9" y1="12" x2="20" y2="12" />
+      <line x1="9" y1="18" x2="20" y2="18" />
+      <circle cx="4" cy="6" r="1.5" fill={color} stroke="none" />
+      <circle cx="4" cy="12" r="1.5" fill={color} stroke="none" />
+      <circle cx="4" cy="18" r="1.5" fill={color} stroke="none" />
+    </svg>
+  );
+});
+
+const IconListOl = memo(function IconListOl({ size = 13, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <line x1="10" y1="6" x2="21" y2="6" />
+      <line x1="10" y1="12" x2="21" y2="12" />
+      <line x1="10" y1="18" x2="21" y2="18" />
+      <path d="M4 6V3.5L3 4" strokeWidth="1.8" />
+      <path d="M3 10.5c.3-.5 1-1 1.8-.7.6.3.7 1 .3 1.5l-2.1 2.2h2.2" strokeWidth="1.6" />
+      <path d="M3 16.5h1.5a1 1 0 0 1 0 2H3.5h1a1 1 0 0 1 0 2H3" strokeWidth="1.6" />
+    </svg>
+  );
+});
+
+const IconQuote = memo(function IconQuote({ size = 13, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <path d="M3 13h4a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H4a1 1 0 0 0-1 1v6c0 3 2 5 5 6" />
+      <path d="M15 13h4a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3a1 1 0 0 0-1 1v6c0 3 2 5 5 6" />
+    </svg>
+  );
+});
+
+const IconCode = memo(function IconCode({ size = 13, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <polyline points="16 18 22 12 16 6" />
+      <polyline points="8 6 2 12 8 18" />
+    </svg>
+  );
+});
+
+const IconCodeBlock = memo(function IconCodeBlock({ size = 13, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <rect x="3" y="3" width="18" height="18" rx="3" />
+      <path d="M7 8l3 3-3 3" />
+      <line x1="12" y1="14" x2="16" y2="14" />
+    </svg>
+  );
+});
+
+const IconDivider = memo(function IconDivider({ size = 13, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <line x1="3" y1="12" x2="21" y2="12" strokeWidth="2.5" />
+      <line x1="8" y1="5" x2="16" y2="5" strokeDasharray="1 3" strokeWidth="2" />
+      <line x1="8" y1="19" x2="16" y2="19" strokeDasharray="1 3" strokeWidth="2" />
+    </svg>
+  );
+});
+
+const IconUndo = memo(function IconUndo({ size = 13, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <polyline points="9 14 4 9 9 4" />
+      <path d="M20 20v-7a4 4 0 0 0-4-4H4" />
+    </svg>
+  );
+});
+
+const IconRedo = memo(function IconRedo({ size = 13, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <polyline points="15 14 20 9 15 4" />
+      <path d="M4 20v-7a4 4 0 0 1 4-4h12" />
+    </svg>
+  );
+});
+
+const IconClearFormat = memo(function IconClearFormat({ size = 13, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <path d="M6 5h12" />
+      <path d="M12 5v8" />
+      <line x1="15" y1="15" x2="21" y2="21" strokeWidth="2.4" />
+      <line x1="21" y1="15" x2="15" y2="21" strokeWidth="2.4" />
+      <path d="M4 19h6" />
     </svg>
   );
 });
@@ -777,6 +926,16 @@ function EditorArea({
     return false;
   });
   const [showShare, setShowShare] = useState(false);
+  const [activeFormats, setActiveFormats] = useState({
+    bold: false,
+    italic: false,
+    underline: false,
+    strikeThrough: false,
+    ul: false,
+    ol: false,
+    code: false,
+    block: "p",
+  });
   
   // Custom title detection: true if title is already custom (not default and not matching first line)
   const [isCustomTitle, setIsCustomTitle] = useState(() => {
@@ -877,6 +1036,61 @@ function EditorArea({
     }
   }, [isTrashed, isWysiwyg, localText, note.id, onUpdateNote]);
 
+  const checkActiveFormats = useCallback(() => {
+    if (!wysiwygRef.current) return;
+    const sel = window.getSelection();
+    if (!sel || !sel.anchorNode || !wysiwygRef.current.contains(sel.anchorNode)) {
+      return;
+    }
+
+    try {
+      const bold = document.queryCommandState("bold");
+      const italic = document.queryCommandState("italic");
+      const underline = document.queryCommandState("underline");
+      const strikeThrough = document.queryCommandState("strikeThrough");
+      const ul = document.queryCommandState("insertUnorderedList");
+      const ol = document.queryCommandState("insertOrderedList");
+
+      let block = "p";
+      let isCode = false;
+      let curr = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
+      while (curr && curr !== wysiwygRef.current) {
+        const tag = (curr.tagName || "").toLowerCase();
+        if (["h1", "h2", "h3", "blockquote", "pre"].includes(tag) && block === "p") {
+          block = tag;
+        }
+        if (tag === "code" && (!curr.parentElement || (curr.parentElement.tagName || "").toLowerCase() !== "pre")) {
+          isCode = true;
+        }
+        curr = curr.parentElement;
+      }
+
+      setActiveFormats({
+        bold,
+        italic,
+        underline,
+        strikeThrough,
+        ul,
+        ol,
+        code: isCode,
+        block,
+      });
+    } catch {
+      // Ignored if browser queryCommandState throws
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isWysiwyg) return;
+    const handleSelectionChange = () => {
+      checkActiveFormats();
+    };
+    document.addEventListener("selectionchange", handleSelectionChange);
+    return () => {
+      document.removeEventListener("selectionchange", handleSelectionChange);
+    };
+  }, [isWysiwyg, checkActiveFormats]);
+
   const execFormat = useCallback((command, value = null) => {
     if (isTrashed || !wysiwygRef.current) return;
     wysiwygRef.current.focus();
@@ -886,7 +1100,21 @@ function EditorArea({
       // Ignored if browser rejects command
     }
     syncFromWysiwyg();
-  }, [isTrashed, syncFromWysiwyg]);
+    setTimeout(checkActiveFormats, 10);
+  }, [isTrashed, syncFromWysiwyg, checkActiveFormats]);
+
+  const toggleBlock = useCallback((tag) => {
+    if (isTrashed || !wysiwygRef.current) return;
+    wysiwygRef.current.focus();
+    const targetTag = activeFormats.block === tag ? "<p>" : `<${tag}>`;
+    try {
+      document.execCommand("formatBlock", false, targetTag);
+    } catch {
+      // Ignored
+    }
+    syncFromWysiwyg();
+    setTimeout(checkActiveFormats, 10);
+  }, [isTrashed, activeFormats.block, syncFromWysiwyg, checkActiveFormats]);
 
   const formatInlineCode = useCallback(() => {
     if (isTrashed || !wysiwygRef.current) return;
@@ -914,7 +1142,8 @@ function EditorArea({
       }
     }
     syncFromWysiwyg();
-  }, [isTrashed, syncFromWysiwyg]);
+    setTimeout(checkActiveFormats, 10);
+  }, [isTrashed, syncFromWysiwyg, checkActiveFormats]);
 
   const handleWysiwygClick = useCallback((e) => {
     const link = e.target.closest("a");
@@ -1158,156 +1387,184 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
             background: C.surface2,
             borderBottom: `1px solid ${C.border}`,
             color: C.text,
+            "--wysiwyg-active-bg": `${C.accent}20`,
+            "--wysiwyg-active-fg": theme === "light" ? "#3b730e" : C.accent,
+            "--wysiwyg-active-border": theme === "light" ? "#5a9e1e66" : "#c8ff5766",
+            "--wysiwyg-active-glow": theme === "light" ? "transparent" : "rgba(200, 255, 87, 0.2)",
           }}
         >
-          {/* Headings / Block format */}
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); execFormat("formatBlock", "<p>"); }}
-            className="wysiwyg-btn"
-            title="Normal text (Paragraph)"
-            style={{ color: C.text }}
-          >
-            P
-          </button>
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); execFormat("formatBlock", "<h1>"); }}
-            className="wysiwyg-btn"
-            title="Heading 1"
-            style={{ color: C.text, fontWeight: 700 }}
-          >
-            H1
-          </button>
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); execFormat("formatBlock", "<h2>"); }}
-            className="wysiwyg-btn"
-            title="Heading 2"
-            style={{ color: C.text, fontWeight: 700 }}
-          >
-            H2
-          </button>
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); execFormat("formatBlock", "<h3>"); }}
-            className="wysiwyg-btn"
-            title="Heading 3"
-            style={{ color: C.text, fontWeight: 700 }}
-          >
-            H3
-          </button>
+          {/* Group 1: Headings & Paragraph */}
+          <div className="wysiwyg-group" role="group" aria-label="Text Structure">
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); toggleBlock("p"); }}
+              className={`wysiwyg-btn ${activeFormats.block === "p" ? "active" : ""}`}
+              title="Normal paragraph text"
+              aria-label="Paragraph"
+            >
+              <span style={{ fontSize: 11, fontWeight: 700, fontFamily: mono }}>P</span>
+            </button>
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); toggleBlock("h1"); }}
+              className={`wysiwyg-btn ${activeFormats.block === "h1" ? "active" : ""}`}
+              title="Heading 1"
+              aria-label="Heading 1"
+            >
+              <span style={{ fontSize: 11, fontWeight: 800, fontFamily: mono }}>H1</span>
+            </button>
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); toggleBlock("h2"); }}
+              className={`wysiwyg-btn ${activeFormats.block === "h2" ? "active" : ""}`}
+              title="Heading 2"
+              aria-label="Heading 2"
+            >
+              <span style={{ fontSize: 11, fontWeight: 800, fontFamily: mono }}>H2</span>
+            </button>
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); toggleBlock("h3"); }}
+              className={`wysiwyg-btn ${activeFormats.block === "h3" ? "active" : ""}`}
+              title="Heading 3"
+              aria-label="Heading 3"
+            >
+              <span style={{ fontSize: 11, fontWeight: 800, fontFamily: mono }}>H3</span>
+            </button>
+          </div>
 
-          <span style={{ width: 1, height: 16, background: C.border, margin: "0 3px", flexShrink: 0 }} />
+          {/* Group 2: Inline Typography Styles */}
+          <div className="wysiwyg-group" role="group" aria-label="Inline Styles">
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); execFormat("bold"); }}
+              className={`wysiwyg-btn ${activeFormats.bold ? "active" : ""}`}
+              title="Bold (Ctrl+B)"
+              aria-label="Bold"
+            >
+              <IconBold size={13} color="currentColor" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); execFormat("italic"); }}
+              className={`wysiwyg-btn ${activeFormats.italic ? "active" : ""}`}
+              title="Italic (Ctrl+I)"
+              aria-label="Italic"
+            >
+              <IconItalic size={13} color="currentColor" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); execFormat("underline"); }}
+              className={`wysiwyg-btn ${activeFormats.underline ? "active" : ""}`}
+              title="Underline (Ctrl+U)"
+              aria-label="Underline"
+            >
+              <IconUnderline size={13} color="currentColor" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); execFormat("strikeThrough"); }}
+              className={`wysiwyg-btn ${activeFormats.strikeThrough ? "active" : ""}`}
+              title="Strikethrough"
+              aria-label="Strikethrough"
+            >
+              <IconStrike size={13} color="currentColor" />
+            </button>
+          </div>
 
-          {/* Text Styling */}
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); execFormat("bold"); }}
-            className="wysiwyg-btn"
-            title="Bold (Ctrl+B)"
-            style={{ color: C.text, fontWeight: 800, width: 26 }}
-          >
-            B
-          </button>
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); execFormat("italic"); }}
-            className="wysiwyg-btn"
-            title="Italic (Ctrl+I)"
-            style={{ color: C.text, fontStyle: "italic", width: 26 }}
-          >
-            I
-          </button>
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); execFormat("underline"); }}
-            className="wysiwyg-btn"
-            title="Underline (Ctrl+U)"
-            style={{ color: C.text, textDecoration: "underline", width: 26 }}
-          >
-            U
-          </button>
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); execFormat("strikeThrough"); }}
-            className="wysiwyg-btn"
-            title="Strikethrough"
-            style={{ color: C.text, textDecoration: "line-through", width: 26 }}
-          >
-            S
-          </button>
+          {/* Group 3: Lists & Blockquote */}
+          <div className="wysiwyg-group" role="group" aria-label="Lists and Quotes">
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); execFormat("insertUnorderedList"); }}
+              className={`wysiwyg-btn ${activeFormats.ul ? "active" : ""}`}
+              title="Bullet List"
+              aria-label="Bullet List"
+            >
+              <IconListUl size={13} color="currentColor" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); execFormat("insertOrderedList"); }}
+              className={`wysiwyg-btn ${activeFormats.ol ? "active" : ""}`}
+              title="Numbered List"
+              aria-label="Numbered List"
+            >
+              <IconListOl size={13} color="currentColor" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); toggleBlock("blockquote"); }}
+              className={`wysiwyg-btn ${activeFormats.block === "blockquote" ? "active" : ""}`}
+              title="Blockquote"
+              aria-label="Blockquote"
+            >
+              <IconQuote size={13} color="currentColor" />
+            </button>
+          </div>
 
-          <span style={{ width: 1, height: 16, background: C.border, margin: "0 3px", flexShrink: 0 }} />
+          {/* Group 4: Code & Divider */}
+          <div className="wysiwyg-group" role="group" aria-label="Code and Divider">
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); formatInlineCode(); }}
+              className={`wysiwyg-btn ${activeFormats.code ? "active" : ""}`}
+              title="Inline Code (`code`)"
+              aria-label="Inline Code"
+            >
+              <IconCode size={13} color="currentColor" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); toggleBlock("pre"); }}
+              className={`wysiwyg-btn ${activeFormats.block === "pre" ? "active" : ""}`}
+              title="Code Block"
+              aria-label="Code Block"
+            >
+              <IconCodeBlock size={13} color="currentColor" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); execFormat("insertHorizontalRule"); }}
+              className="wysiwyg-btn"
+              title="Horizontal Divider"
+              aria-label="Horizontal Divider"
+            >
+              <IconDivider size={13} color="currentColor" />
+            </button>
+          </div>
 
-          {/* Lists & Quotes */}
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); execFormat("insertUnorderedList"); }}
-            className="wysiwyg-btn"
-            title="Bullet List"
-            style={{ color: C.text }}
-          >
-            • List
-          </button>
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); execFormat("insertOrderedList"); }}
-            className="wysiwyg-btn"
-            title="Numbered List"
-            style={{ color: C.text }}
-          >
-            1. List
-          </button>
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); execFormat("formatBlock", "<blockquote>"); }}
-            className="wysiwyg-btn"
-            title="Blockquote"
-            style={{ color: C.text }}
-          >
-            ❝ Quote
-          </button>
-
-          <span style={{ width: 1, height: 16, background: C.border, margin: "0 3px", flexShrink: 0 }} />
-
-          {/* Code & Horizontal Divider */}
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); formatInlineCode(); }}
-            className="wysiwyg-btn"
-            title="Inline Code (`code`)"
-            style={{ color: C.text, fontFamily: mono, fontSize: 11 }}
-          >
-            `Code`
-          </button>
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); execFormat("formatBlock", "<pre>"); }}
-            className="wysiwyg-btn"
-            title="Code Block"
-            style={{ color: C.text, fontFamily: mono, fontSize: 11 }}
-          >
-            &lt;/&gt; Block
-          </button>
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); execFormat("insertHorizontalRule"); }}
-            className="wysiwyg-btn"
-            title="Horizontal Divider"
-            style={{ color: C.text }}
-          >
-            ― Line
-          </button>
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); execFormat("removeFormat"); }}
-            className="wysiwyg-btn"
-            title="Clear Formatting"
-            style={{ color: C.dim, fontSize: 11 }}
-          >
-            Clear
-          </button>
+          {/* Group 5: History & Utilities */}
+          <div className="wysiwyg-group" role="group" aria-label="History and Formatting">
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); execFormat("undo"); }}
+              className="wysiwyg-btn"
+              title="Undo (Ctrl+Z)"
+              aria-label="Undo"
+            >
+              <IconUndo size={13} color="currentColor" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); execFormat("redo"); }}
+              className="wysiwyg-btn"
+              title="Redo (Ctrl+Y)"
+              aria-label="Redo"
+            >
+              <IconRedo size={13} color="currentColor" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); execFormat("removeFormat"); }}
+              className="wysiwyg-btn"
+              title="Clear Formatting"
+              aria-label="Clear Formatting"
+            >
+              <IconClearFormat size={13} color="currentColor" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -1473,6 +1730,421 @@ ${imgs ? `<p style="margin:18pt 0 6pt;font-family:Calibri;font-size:11pt;font-we
   );
 }
 
+// ─── Data Export Helpers & Modal ──────────────────────────────
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+function exportAllJson(notesList, userEmail, showToast) {
+  if (!notesList || notesList.length === 0) {
+    showToast("No prompts to export", "warn");
+    return;
+  }
+  try {
+    const exportData = {
+      app: "Prompt Notepad",
+      version: "1.0",
+      exportedAt: new Date().toISOString(),
+      user: userEmail || "anonymous",
+      totalNotes: notesList.length,
+      notes: notesList.map(n => ({
+        id: n.id,
+        title: n.title || "Untitled Prompt",
+        text: n.text || "",
+        isRich: !!n.isRich,
+        tags: {
+          important: !!n.important,
+          personal: !!n.personal,
+          client: !!n.client,
+        },
+        deleted: !!n.deleted,
+        shareId: n.shareId || null,
+        createdAt: n.createdAt ? new Date(n.createdAt).toISOString() : null,
+        updatedAt: n.updatedAt ? new Date(n.updatedAt).toISOString() : null,
+        images: n.images || [],
+        files: (n.files || []).map(f => ({
+          id: f.id,
+          name: f.name,
+          type: f.type,
+          size: f.size,
+          dataUrl: f.dataUrl,
+        })),
+      })),
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json;charset=utf-8",
+    });
+    const dateStr = new Date().toISOString().slice(0, 10);
+    triggerDownload(blob, `prompt-notepad-backup-${dateStr}.json`);
+    showToast(`Exported ${notesList.length} prompt${notesList.length === 1 ? "" : "s"} to JSON ✓`, "success");
+  } catch (err) {
+    console.error("Export JSON failed:", err);
+    showToast("Failed to export JSON", "error");
+  }
+}
+
+function exportAllMarkdown(notesList, userEmail, showToast) {
+  if (!notesList || notesList.length === 0) {
+    showToast("No prompts to export", "warn");
+    return;
+  }
+  try {
+    const dateStr = new Date().toISOString().slice(0, 10);
+    let md = `# Prompt Notepad Export\n\n`;
+    md += `> **Export Date:** ${new Date().toLocaleString()}\n`;
+    if (userEmail) md += `> **Account:** ${userEmail}\n`;
+    md += `> **Total Prompts:** ${notesList.length}\n\n`;
+    md += `---\n\n`;
+
+    notesList.forEach((n, idx) => {
+      const title = (n.title || "Untitled Prompt").trim();
+      const tags = [];
+      if (n.important) tags.push("Important");
+      if (n.personal) tags.push("Personal");
+      if (n.client) tags.push("Client");
+      if (n.deleted) tags.push("Trash");
+
+      const createdDate = n.createdAt ? new Date(n.createdAt).toLocaleString() : "Unknown";
+      const updatedDate = n.updatedAt ? new Date(n.updatedAt).toLocaleString() : "Unknown";
+
+      md += `## ${idx + 1}. ${title}\n\n`;
+      md += `- **Created:** ${createdDate}\n`;
+      md += `- **Updated:** ${updatedDate}\n`;
+      if (tags.length > 0) {
+        md += `- **Tags:** ${tags.join(", ")}\n`;
+      }
+      if (n.deleted) {
+        md += `- **Status:** In Trash\n`;
+      }
+      md += `\n`;
+
+      let content = n.text || "";
+      if (/^\s*<[a-z][\s\S]*>/i.test(content)) {
+        try {
+          content = turndownService.turndown(content);
+        } catch {
+          content = content.replace(/<[^>]+>/g, "");
+        }
+      }
+
+      md += `${content.trim()}\n\n`;
+
+      if (n.files && n.files.length > 0) {
+        md += `**Attached Files (${n.files.length}):**\n`;
+        n.files.forEach(f => {
+          md += `- ${f.name} (${f.type}, ${formatSize(f.size || 0)})\n`;
+        });
+        md += `\n`;
+      }
+
+      if (n.images && n.images.length > 0) {
+        md += `*Attached Images: ${n.images.length} image${n.images.length === 1 ? "" : "s"}*\n\n`;
+      }
+
+      md += `---\n\n`;
+    });
+
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    triggerDownload(blob, `prompt-notepad-export-${dateStr}.md`);
+    showToast(`Exported ${notesList.length} prompt${notesList.length === 1 ? "" : "s"} to Markdown ✓`, "success");
+  } catch (err) {
+    console.error("Export Markdown failed:", err);
+    showToast("Failed to export Markdown", "error");
+  }
+}
+
+function exportAllCsv(notesList, userEmail, showToast) {
+  if (!notesList || notesList.length === 0) {
+    showToast("No prompts to export", "warn");
+    return;
+  }
+  try {
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const headers = ["ID", "Title", "Content", "Tags", "Status", "Created At", "Updated At", "Images Count", "Files Count"];
+    
+    const escapeCsv = (str) => {
+      if (str == null) return '""';
+      const s = String(str).replace(/"/g, '""');
+      return `"${s}"`;
+    };
+
+    const rows = notesList.map(n => {
+      let plain = n.text || "";
+      if (/^\s*<[a-z][\s\S]*>/i.test(plain)) {
+        plain = plain.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      }
+      const tags = [];
+      if (n.important) tags.push("Important");
+      if (n.personal) tags.push("Personal");
+      if (n.client) tags.push("Client");
+
+      return [
+        escapeCsv(n.id),
+        escapeCsv(n.title || "Untitled Prompt"),
+        escapeCsv(plain),
+        escapeCsv(tags.join(", ")),
+        escapeCsv(n.deleted ? "Trash" : "Active"),
+        escapeCsv(n.createdAt ? new Date(n.createdAt).toISOString() : ""),
+        escapeCsv(n.updatedAt ? new Date(n.updatedAt).toISOString() : ""),
+        escapeCsv(n.images?.length || 0),
+        escapeCsv(n.files?.length || 0),
+      ].join(",");
+    });
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+    triggerDownload(blob, `prompt-notepad-export-${dateStr}.csv`);
+    showToast(`Exported ${notesList.length} prompt${notesList.length === 1 ? "" : "s"} to CSV ✓`, "success");
+  } catch (err) {
+    console.error("Export CSV failed:", err);
+    showToast("Failed to export CSV", "error");
+  }
+}
+
+function ExportModal({ notes, userEmail, C, theme, onClose, showToast }) {
+  const [includeTrash, setIncludeTrash] = useState(false);
+
+  const activeNotes = useMemo(() => notes.filter(n => !n.deleted), [notes]);
+  const notesToExport = useMemo(() => {
+    return includeTrash ? notes : activeNotes;
+  }, [includeTrash, notes, activeNotes]);
+
+  const trashCount = notes.length - activeNotes.length;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.65)",
+        backdropFilter: "blur(2px)",
+        zIndex: 9998,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: C.surface,
+          border: `1px solid ${C.border}`,
+          borderRadius: 10,
+          padding: "24px 24px 22px",
+          width: 520,
+          maxWidth: "100%",
+          fontFamily: mono,
+          boxShadow: "0 16px 64px rgba(0,0,0,0.6)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.text, fontSize: 16, fontWeight: 700 }}>
+            <IconDownload size={18} color={C.accent} /> Export All Data
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              background: "transparent",
+              border: `1px solid ${C.border}`,
+              borderRadius: 4,
+              width: 26,
+              height: 26,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <IconClose size={13} color={C.dim} />
+          </button>
+        </div>
+
+        <div style={{ color: C.dim, fontSize: 12, lineHeight: 1.6, marginBottom: 16 }}>
+          Download an archive of all your prompts and notes ({notesToExport.length} prompt{notesToExport.length === 1 ? "" : "s"} selected). Choose your preferred export format below:
+        </div>
+
+        {trashCount > 0 && (
+          <label
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 12,
+              color: C.text,
+              cursor: "pointer",
+              marginBottom: 16,
+              padding: "6px 12px",
+              background: C.surface2,
+              borderRadius: 5,
+              border: `1px solid ${C.border}`,
+              userSelect: "none",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={includeTrash}
+              onChange={e => setIncludeTrash(e.target.checked)}
+              style={{ accentColor: C.accent, cursor: "pointer" }}
+            />
+            Include trashed prompts ({trashCount})
+          </label>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 6 }}>
+          {/* Format 1: JSON */}
+          <div
+            style={{
+              background: C.surface2,
+              border: `1px solid ${C.border}`,
+              borderRadius: 8,
+              padding: "14px 16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 4 }}>
+                <span style={{ color: C.accent, fontSize: 13, fontWeight: 800 }}>&#123; &#125;</span> JSON Backup (.json)
+              </div>
+              <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.4 }}>
+                Lossless structured data backup including all metadata, tags, images, attachments, and timestamps.
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                exportAllJson(notesToExport, userEmail, showToast);
+                onClose();
+              }}
+              style={{
+                background: C.accent,
+                color: C.accentFg,
+                border: "none",
+                borderRadius: 5,
+                padding: "8px 14px",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: mono,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                flexShrink: 0,
+              }}
+            >
+              <IconDownload size={13} color={C.accentFg} /> Download .json
+            </button>
+          </div>
+
+          {/* Format 2: Markdown */}
+          <div
+            style={{
+              background: C.surface2,
+              border: `1px solid ${C.border}`,
+              borderRadius: 8,
+              padding: "14px 16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 4 }}>
+                <span style={{ color: theme === "light" ? "#3b730e" : C.accent, fontSize: 13, fontWeight: 800 }}>M↓</span> Markdown Archive (.md)
+              </div>
+              <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.4 }}>
+                Clean, human-readable document. Compatible with Obsidian, Notion, Bear, and GitHub.
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                exportAllMarkdown(notesToExport, userEmail, showToast);
+                onClose();
+              }}
+              style={{
+                background: "transparent",
+                color: theme === "light" ? "#3b730e" : C.accent,
+                border: `1px solid ${C.accent}`,
+                borderRadius: 5,
+                padding: "8px 14px",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: mono,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                flexShrink: 0,
+              }}
+            >
+              <IconDownload size={13} color={theme === "light" ? "#3b730e" : C.accent} /> Download .md
+            </button>
+          </div>
+
+          {/* Format 3: CSV (bonus) */}
+          <div
+            style={{
+              background: C.surface2,
+              border: `1px solid ${C.border}`,
+              borderRadius: 8,
+              padding: "14px 16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 4 }}>
+                <span style={{ color: C.user, fontSize: 13, fontWeight: 800 }}>⊞</span> CSV Spreadsheet (.csv)
+              </div>
+              <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.4 }}>
+                Tabular format with prompts, titles, tags, and dates for Excel or Google Sheets.
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                exportAllCsv(notesToExport, userEmail, showToast);
+                onClose();
+              }}
+              style={{
+                background: "transparent",
+                color: C.text,
+                border: `1px solid ${C.border}`,
+                borderRadius: 5,
+                padding: "8px 14px",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: mono,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                flexShrink: 0,
+              }}
+            >
+              <IconDownload size={13} color={C.text} /> Download .csv
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const RAIL = [
   { id: null, label: "All", Icon: IconAll, colorKey: "accent" },
   { id: "important", label: "Important", Icon: IconStar, colorKey: "star" },
@@ -1500,6 +2172,7 @@ function PromptNotepad() {
   const [fetchError, setFetchError] = useState(null);
   const [carousel, setCarousel] = useState(null); // {images:[], index:0}
   const [mobOpen, setMobOpen] = useState(false);
+  const [showExport, setShowExport] = useState(false);
 
   const saveTimer = useRef(null);
   const pendingNotesRef = useRef({});
@@ -2197,8 +2870,51 @@ function PromptNotepad() {
               </div>
               {storagePercent > 90 && <div style={{ color: C.danger, fontSize: 9, marginTop: 3 }}>⚠ Storage almost full</div>}
             </div>
-            <div style={{ color: C.muted, fontSize: 10, marginBottom: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
-            <button onClick={signOut} style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontFamily: mono, fontSize: 10, padding: "4px 10px", borderRadius: 4, cursor: "pointer", width: "100%" }}>Sign out</button>
+            <div style={{ color: C.muted, fontSize: 10, marginBottom: 8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                onClick={() => setShowExport(true)}
+                title="Export all prompts and notes"
+                style={{
+                  background: `${C.accent}14`,
+                  border: `1px solid ${C.accent}55`,
+                  color: theme === "light" ? "#3b730e" : C.accent,
+                  fontFamily: mono,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: "5px 10px",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  flex: 1,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 5,
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <IconDownload size={11} color={theme === "light" ? "#3b730e" : C.accent} /> Export Data
+              </button>
+              <button
+                onClick={signOut}
+                title="Sign out of your account"
+                style={{
+                  background: "transparent",
+                  border: `1px solid ${C.border}`,
+                  color: C.muted,
+                  fontFamily: mono,
+                  fontSize: 10,
+                  padding: "5px 10px",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                Sign out
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -2245,6 +2961,17 @@ function PromptNotepad() {
 
       <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileInputWithToast} />
       <input ref={docInputRef} type="file" accept=".md,.csv,.pdf" style={{ display: "none" }} onChange={handleDocFileUpload} />
+
+      {showExport && (
+        <ExportModal
+          notes={notes}
+          userEmail={user.email}
+          C={C}
+          theme={theme}
+          onClose={() => setShowExport(false)}
+          showToast={showToast}
+        />
+      )}
     </div>
   );
 }
